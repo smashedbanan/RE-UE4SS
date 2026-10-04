@@ -942,6 +942,36 @@ namespace RC
         config.bHookProcessConsoleExec = settings_manager.Hooks.HookProcessConsoleExec;
         config.bHookUStructLink = settings_manager.Hooks.HookUStructLink;
         config.FExecVTableOffsetInLocalPlayer = settings_manager.Hooks.FExecVTableOffsetInLocalPlayer;
+#ifndef _WIN32
+        // These hooks take their target from a vtable slot, and the shipped layouts are MSVC's: past a
+        // class's first overload the Itanium order differs, and the detour lands on the neighbouring
+        // function (BeginPlay on RemoveTickPrerequisiteComponent, LoadMap on HandleReconnectCommand,
+        // on Dragonwilds) and corrupts the game. They stay on only with a VTableLayout.ini made for
+        // this Linux build. LocalPlayerExec (the console of a game client) also depends on
+        // FExecVTableOffsetInLocalPlayer, an MSVC multiple-inheritance offset: on Linux it must be
+        // set in UE4SS-settings.ini together with the ini.
+        if (!std::filesystem::exists(m_working_directory / STR("VTableLayout.ini")))
+        {
+            const bool any_requested = config.bHookLoadMap || config.bHookInitGameState || config.bHookBeginPlay || config.bHookEndPlay ||
+                                       config.bHookLocalPlayerExec || config.bHookAActorTick || config.bHookGameViewportClientTick ||
+                                       config.bHookProcessConsoleExec || config.bHookUStructLink;
+            if (any_requested)
+            {
+                Output::send<LogLevel::Warning>(STR("No VTableLayout.ini for this Linux build: hooks that read a vtable slot "
+                                                    "(LoadMap, InitGameState, BeginPlay, EndPlay, LocalPlayerExec, AActorTick, "
+                                                    "GameViewportClientTick, ProcessConsoleExec, UStructLink) are off\n"));
+            }
+            config.bHookLocalPlayerExec = false;
+            config.bHookLoadMap = false;
+            config.bHookInitGameState = false;
+            config.bHookBeginPlay = false;
+            config.bHookEndPlay = false;
+            config.bHookAActorTick = false;
+            config.bHookGameViewportClientTick = false;
+            config.bHookProcessConsoleExec = false;
+            config.bHookUStructLink = false;
+        }
+#endif
         config.FNameToStringMethod = settings_manager.General.DefaultFNameToStringMethod;
         config.DebugBuild = settings_manager.EngineVersionOverride.DebugBuild;
         config.Stats = settings_manager.EngineVersionOverride.Stats;
