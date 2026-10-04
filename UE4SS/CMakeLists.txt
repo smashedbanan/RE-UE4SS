@@ -165,6 +165,18 @@ if(WIN32)
     if(UE4SS_GUI_ENABLED)
         target_link_libraries(UE4SS PUBLIC d3d11 opengl32)
     endif()
+else()
+    # The library lives inside a game that brings its own C++ runtime: an Unreal Linux binary exports
+    # libc++abi (__cxa_throw and company), and the executable comes first in symbol lookup. Without
+    # these flags a throw inside UE4SS - even one caught a few lines below - runs the game's
+    # __cxa_throw with another library's personality routine, and the process dies (seen on Palworld
+    # with SIGSEGV, on Dragonwilds with "libc++abi: terminating"). The runtime is linked in and every
+    # reference binds inside the library, and none of it is exported back to the game.
+    # The unwinder too: Rust's runtime asks for -lgcc_s ahead of everything else, and the game's own
+    # _Unwind_RaiseException (LLVM libunwind, exported by Dragonwilds) then raised our exceptions
+    # straight into std::terminate. -u pulls libgcc_eh.a in before any object needs it.
+    target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic -Wl,--exclude-libs,ALL
+                        -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
 endif()
 
 # ---------------------------------------------------------------------------

@@ -269,8 +269,8 @@ pub fn ps_scan_internal(ctx: &PsCtx, results: &mut PsScanResults) -> Result<(), 
 
 #[no_mangle]
 pub extern "C" fn ps_scan(ctx: &PsCtx, results: &mut PsScanResults) -> bool {
-    if let Err(_err) = ps_scan_internal(ctx, results) {
-        warning!(ctx, "Scan failed\n");
+    if let Err(err) = ps_scan_internal(ctx, results) {
+        warning!(ctx, "Scan failed: {err}\n");
         false
     } else {
         true

@@ -49,8 +49,12 @@ namespace
         return {};
     }
 
-    auto thread_start(UE4SSProgram* program) -> void
+    auto thread_start(std::filesystem::path library) -> void
     {
+        // Built here and not in the constructor: an ELF constructor may run before the static
+        // initializers of the rest of libUE4SS.so (KeyDef's key table, among others), and parsing the
+        // settings then fails on a valid key. On Windows DllMain only runs after all of them.
+        auto program = new UE4SSProgram(library, {});
         program->init();
         if (auto e = program->get_error_object(); e->has_error())
         {
@@ -72,8 +76,7 @@ __attribute__((constructor)) static void ue4ss_linux_start()
     {
         return;
     }
-    auto program = new UE4SSProgram(library_path(), {});
-    std::thread{thread_start, program}.detach();
+    std::thread{thread_start, library_path()}.detach();
 }
 
 __attribute__((destructor)) static void ue4ss_linux_stop()

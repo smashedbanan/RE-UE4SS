@@ -76,6 +76,54 @@
 
 namespace RC
 {
+    // Reads mods.txt line by line, without the UTF-8 BOM. Windows keeps its wide stream (each byte
+    // widened to a wchar_t). A char16_t stream has no std::ctype facet in libstdc++ or libc++, so
+    // std::getline on one throws std::bad_cast and took the whole process down; elsewhere the file
+    // is read as bytes and decoded from UTF-8.
+    static auto read_mods_txt_lines(const std::filesystem::path& file) -> std::vector<StringType>
+    {
+        std::ifstream bom_check(file, std::ios::binary);
+        char bom[3] = {0};
+        bom_check.read(bom, 3);
+        bool has_bom = (bom[0] == '\xEF' && bom[1] == '\xBB' && bom[2] == '\xBF');
+        bom_check.close();
+
+        std::vector<StringType> lines;
+#ifdef _WIN32
+        StreamIType mods_stream{file};
+
+        // If BOM was detected, skip the first "character" (which will be the BOM interpreted as a wide char)
+        if (has_bom)
+        {
+            CharType discard;
+            mods_stream.get(discard);
+        }
+
+        StringType current_line;
+        while (std::getline(mods_stream, current_line))
+        {
+            lines.push_back(current_line);
+        }
+#else
+        std::ifstream mods_stream{file, std::ios::binary};
+        if (has_bom)
+        {
+            mods_stream.ignore(3);
+        }
+
+        std::string current_line;
+        while (std::getline(mods_stream, current_line))
+        {
+            // Binary mode keeps the '\r' of a file saved on Windows; the text-mode stream there drops it.
+            if (!current_line.empty() && current_line.back() == '\r')
+            {
+                current_line.pop_back();
+            }
+            lines.push_back(ensure_str(current_line));
+        }
+#endif
+        return lines;
+    }
     // Commented out because this system (turn off hotkeys when in-game console is open) it doesn't work properly.
     /*
     auto get_player_controller() -> UObject*
@@ -1560,25 +1608,7 @@ namespace RC
                 // 'mods.txt' exists, lets parse it
                 Output::send(STR("Starting mods (from mods.txt ({}) load order)...\n"), ensure_str(enabled_mods_file));
 
-                // First, check for BOM using a byte stream
-                std::ifstream bom_check(enabled_mods_file, std::ios::binary);
-                char bom[3] = {0};
-                bom_check.read(bom, 3);
-                bool has_bom = (bom[0] == '\xEF' && bom[1] == '\xBB' && bom[2] == '\xBF');
-                bom_check.close();
-
-                // Now open the actual stream
-                StreamIType mods_stream{enabled_mods_file};
-
-                // If BOM was detected, skip the first "character" (which will be the BOM interpreted as a wide char)
-                if (has_bom)
-                {
-                    CharType discard;
-                    mods_stream.get(discard);
-                }
-
-                StringType current_line;
-                while (std::getline(mods_stream, current_line))
+                for (StringType current_line : read_mods_txt_lines(enabled_mods_file))
                 {
                     // Don't parse any lines with ';'
                     if (current_line.find(STR(";")) != current_line.npos)
@@ -2122,22 +2152,7 @@ namespace RC
 
         for (const auto& mods_txt_path : mods_txt_files)
         {
-            std::ifstream bom_check(mods_txt_path, std::ios::binary);
-            char bom[3] = {0};
-            bom_check.read(bom, 3);
-            bool has_bom = (bom[0] == '\xEF' && bom[1] == '\xBB' && bom[2] == '\xBF');
-            bom_check.close();
-
-            StreamIType mods_stream{mods_txt_path};
-
-            if (has_bom)
-            {
-                CharType discard;
-                mods_stream.get(discard);
-            }
-
-            StringType current_line;
-            while (std::getline(mods_stream, current_line))
+            for (StringType current_line : read_mods_txt_lines(mods_txt_path))
             {
                 if (current_line.find(STR(";")) != current_line.npos)
                 {

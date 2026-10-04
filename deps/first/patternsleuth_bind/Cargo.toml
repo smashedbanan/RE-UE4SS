@@ -3,8 +3,13 @@ name = "patternsleuth_bind"
 version = "0.1.0"
 edition = "2021"
 
-[dependencies]
+# The game is a PE on Windows and an ELF on Linux: process::internal::read_image() parses the
+# running image, and without the matching image feature it fails with "Unsupported object file format".
+[target.'cfg(windows)'.dependencies]
 patternsleuth = { path = "../patternsleuth/patternsleuth", features = ["process-internal", "image-pe"] }
+
+[target.'cfg(not(windows))'.dependencies]
+patternsleuth = { path = "../patternsleuth/patternsleuth", features = ["process-internal", "image-elf"] }
 
 [lib]
 crate-type = ["staticlib"]
