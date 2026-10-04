@@ -131,6 +131,12 @@ namespace RC
 
     static auto lua_unreal_script_function_hook_pre(Unreal::UnrealScriptFunctionCallableContext context, void* custom_data) -> void
     {
+        // A hooked UFunction runs on whichever thread calls it, not only the game thread: Palworld's
+        // animation Blueprints call KismetMathLibrary functions from worker threads, and two threads
+        // in one Lua state corrupted it (crash in lua_rawgeti/lua_setiuservalue). Every other entry
+        // into the mod's Lua state takes this lock; recursive, so a hook firing inside another
+        // hook's callback on the same thread still runs.
+        std::lock_guard<std::recursive_mutex> guard{LuaMod::m_thread_actions_mutex};
         TRY([&]() {
             // Fetch the data corresponding to this UFunction
             auto& lua_data = *static_cast<LuaUnrealScriptFunctionData*>(custom_data);
@@ -235,6 +241,8 @@ namespace RC
 
     static auto lua_unreal_script_function_hook_post(Unreal::UnrealScriptFunctionCallableContext context, void* custom_data) -> void
     {
+        // Same lock as the pre-hook: this also runs on the calling thread and touches the Lua state.
+        std::lock_guard<std::recursive_mutex> guard{LuaMod::m_thread_actions_mutex};
         // Fetch the data corresponding to this UFunction
         auto& lua_data = *static_cast<LuaUnrealScriptFunctionData*>(custom_data);
 

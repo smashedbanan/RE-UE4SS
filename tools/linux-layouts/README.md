@@ -80,4 +80,7 @@ python3 ue_vtable_layout.py <executable> VTableLayout_5_06_Template.ini > VTable
   only by the virtuals Jagex added.
 - UE 5.1.1 source on Palworld (no `.sym`): all vtable hooks install, Lua runs `FindFirstOf`,
   `StaticFindObject`, Blueprint and native `RegisterHook`, `ExecuteInGameThread`. The member
-  layouts fixed the native-hook crash (`FProperty::ElementSize`).
+  layouts fixed the native-hook crash (`FProperty::ElementSize`). Hooks on functions its
+  animation Blueprints call from worker threads (KismetMathLibrary) also hold since the Lua
+  RegisterHook callbacks take `LuaMod::m_thread_actions_mutex` (thousands of calls, 10 minutes,
+  game thread still ticking).
