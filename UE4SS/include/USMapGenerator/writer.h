@@ -1,5 +1,8 @@
 #pragma once
 
+#include <cerrno>
+#include <filesystem>
+
 #include <cstring>
 
 #include <DynamicOutput/DynamicOutput.hpp>
@@ -54,7 +57,7 @@ public:
 
     FORCEINLINE void Seek(int Pos, int Origin = SEEK_CUR) override
     {
-        m_Stream.seekp(Pos, Origin);
+        m_Stream.seekp(Pos, static_cast<std::ios_base::seekdir>(Origin));
     }
 
     uint32_t Size() override
@@ -80,9 +83,14 @@ class FileWriter : IBufferWriter
 
 public:
 
-    FileWriter(const wchar_t* FileName)
+    FileWriter(const RC::CharType* FileName)
     {
+#ifdef _WIN32
         auto fopen_r = _wfopen_s(&m_File, FileName, L"wb");
+#else
+        m_File = std::fopen(std::filesystem::path{FileName}.c_str(), "wb");
+        auto fopen_r = m_File ? 0 : errno;
+#endif
         if (fopen_r != 0)
         {
             RC::Output::send<RC::LogLevel::Error>(STR("Unable to open file for writing: '{}': {}\n"), FileName, RC::ensure_str(std::strerror(fopen_r)));

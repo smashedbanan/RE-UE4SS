@@ -10,8 +10,10 @@
 #include <Common.hpp>
 #include <CrashDumper.hpp>
 #include <DynamicOutput/DynamicOutput.hpp>
+#ifdef HAS_GUI
 #include <GUI/GUI.hpp>
 #include <GUI/GUITab.hpp>
+#endif
 #include <Input/Handler.hpp>
 #include <LuaLibrary.hpp>
 #include <MProgram.hpp>
@@ -24,6 +26,7 @@
 
 #include <String/StringType.hpp>
 
+#ifdef HAS_GUI
 // Used to set up ImGui context and allocator in DLL mods
 #define UE4SS_ENABLE_IMGUI()                                                                                                                                   \
     /* Wait for UE4SS to create the imgui context. */                                                                                                          \
@@ -40,6 +43,10 @@
         UE4SSProgram::get_current_imgui_allocator_functions(&alloc_func, &free_func, &user_data);                                                              \
         ImGui::SetAllocatorFunctions(alloc_func, free_func, user_data);                                                                                        \
     }
+#else
+// No GUI in this build (headless): mods that call it still compile.
+#define UE4SS_ENABLE_IMGUI()
+#endif
 
 namespace RC
 {
@@ -126,7 +133,9 @@ namespace RC
         std::filesystem::path m_legacy_root_directory;
         Output::DebugConsoleDevice* m_debug_console_device{};
         Output::ConsoleDevice* m_console_device{};
+#ifdef HAS_GUI
         GUI::DebuggingGUI m_debugging_gui{};
+#endif
 
         using EventCallable = std::function<void()>;
         // Legacy types for backward compatibility with C++ mods
@@ -142,6 +151,7 @@ namespace RC
         std::thread::id m_event_loop_thread_id{};
 
       private:
+#ifdef _WIN32
         std::unique_ptr<PLH::IatHook> m_load_library_a_hook;
         uint64_t m_hook_trampoline_load_library_a;
 
@@ -153,6 +163,7 @@ namespace RC
 
         std::unique_ptr<PLH::IatHook> m_load_library_ex_w_hook;
         uint64_t m_hook_trampoline_load_library_ex_w;
+#endif
 
       public:
         std::vector<std::unique_ptr<Mod>> m_mods;
@@ -250,6 +261,7 @@ namespace RC
         RC_UE4SS_API auto generate_uht_compatible_headers() -> void;
         RC_UE4SS_API auto generate_cxx_headers(const std::filesystem::path& output_dir) -> void;
         RC_UE4SS_API auto generate_lua_types(const std::filesystem::path& output_dir) -> void;
+#ifdef HAS_GUI
         auto get_debugging_ui() -> GUI::DebuggingGUI&
         {
             return m_debugging_gui;
@@ -265,6 +277,8 @@ namespace RC
         {
             return ImGui::GetAllocatorFunctions(alloc_func, free_func, user_data);
         }
+#endif
+
         RC_UE4SS_API auto queue_event(EventCallable callable) -> void;
         // Legacy overload for backward compatibility with C++ mods
         RC_UE4SS_API auto queue_event(LegacyEventCallable callable, void* data) -> void;

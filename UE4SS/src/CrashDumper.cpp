@@ -1,4 +1,6 @@
 #include <CrashDumper.hpp>
+
+#ifdef _WIN32
 #include <string>
 #include <format>
 #include <bit>
@@ -34,7 +36,7 @@ namespace RC
         if (file == INVALID_HANDLE_VALUE)
         {
             const StringType message = fmt::format(STR("Failed to create crashdump file, reason: {}"), SysError(GetLastError()).c_str());
-            MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), L"Fatal Error!", MB_OK);
+            MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), STR("Fatal Error!"), MB_OK);
             return EXCEPTION_CONTINUE_SEARCH;
         }
 
@@ -56,12 +58,12 @@ namespace RC
         if (!ok)
         {
             const StringType message = fmt::format(STR("Failed to write crashdump file, reason: {}"), SysError(GetLastError()).c_str());
-            MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), L"Fatal Error!", MB_OK);
+            MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), STR("Fatal Error!"), MB_OK);
             return EXCEPTION_CONTINUE_SEARCH;
         }
 
         const StringType message = fmt::format(STR("Crashdump written to: {}"), dump_path);
-        MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), L"Fatal Error!", MB_OK);
+        MessageBoxW(NULL, FromCharTypePtr<wchar_t>(message.c_str()), STR("Fatal Error!"), MB_OK);
 
         return EXCEPTION_EXECUTE_HANDLER;
     }
@@ -90,7 +92,7 @@ namespace RC
                                                                                "SetUnhandledExceptionFilter",
                                                                                std::bit_cast<uint64_t>(&HookedSetUnhandledExceptionFilter),
                                                                                &m_hook_trampoline_set_unhandled_exception_filter_hook,
-                                                                               L"");
+                                                                               STR(""));
         m_set_unhandled_exception_filter_hook->hook();
         this->enabled = true;
     }
@@ -101,3 +103,17 @@ namespace RC
     }
 
 } // namespace RC
+#else
+namespace RC
+{
+    // Minidumps (dbghelp) are a Windows facility. On Linux the engine's own crash handler already
+    // writes the report (CrashReportClient / the log), so the dumper is a no-op.
+    CrashDumper::CrashDumper() = default;
+    CrashDumper::~CrashDumper() = default;
+    void CrashDumper::enable()
+    {
+        enabled = true;
+    }
+    void CrashDumper::set_full_memory_dump(bool) {}
+} // namespace RC
+#endif

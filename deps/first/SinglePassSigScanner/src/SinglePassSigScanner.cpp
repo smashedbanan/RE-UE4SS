@@ -2,13 +2,112 @@
 #include <future>
 #include <regex>
 
+#ifdef _WIN32
 #define NOMINMAX
 #include <Windows.h>
 #include <Psapi.h>
+#endif
 
 #include <fmt/core.h>
 #include <Profiler/Profiler.hpp>
 #include <SigScanner/SinglePassSigScanner.hpp>
+
+#ifndef _WIN32
+#include <algorithm>
+#include <cstdio>
+#include <fstream>
+#include <string>
+#include <unistd.h>
+
+// The scanner walks memory region by region with VirtualQuery's model. On Linux the regions come
+// from /proc/self/maps (read once per scan: the mappings of the executable do not move), so the
+// scanning loops stay exactly the Windows ones.
+namespace
+{
+    using DWORD = unsigned long;
+    using byte = unsigned char;
+    constexpr DWORD PAGE_NOACCESS = 0x01;
+    constexpr DWORD PAGE_READONLY = 0x02;
+    constexpr DWORD PAGE_READWRITE = 0x04;
+    constexpr DWORD PAGE_WRITECOPY = 0x08;
+    constexpr DWORD PAGE_EXECUTE = 0x10;
+    constexpr DWORD PAGE_EXECUTE_READ = 0x20;
+    constexpr DWORD PAGE_EXECUTE_READWRITE = 0x40;
+    constexpr DWORD PAGE_EXECUTE_WRITECOPY = 0x80;
+    constexpr DWORD PAGE_GUARD = 0x100;
+    constexpr DWORD MEM_COMMIT = 0x1000;
+
+    struct MEMORY_BASIC_INFORMATION
+    {
+        void* BaseAddress;
+        size_t RegionSize;
+        DWORD State;
+        DWORD Protect;
+    };
+
+    struct MapsRegion
+    {
+        uintptr_t start;
+        uintptr_t end;
+        DWORD protect;
+    };
+
+    auto read_maps() -> std::vector<MapsRegion>
+    {
+        std::vector<MapsRegion> regions;
+        std::ifstream maps{"/proc/self/maps"};
+        std::string line;
+        while (std::getline(maps, line))
+        {
+            uintptr_t start{}, end{};
+            char perms[5]{};
+            if (std::sscanf(line.c_str(), "%lx-%lx %4s", &start, &end, perms) != 3)
+            {
+                continue;
+            }
+            const bool r = perms[0] == 'r', w = perms[1] == 'w', x = perms[2] == 'x';
+            DWORD protect = PAGE_NOACCESS;
+            if (x) { protect = w ? PAGE_EXECUTE_READWRITE : (r ? PAGE_EXECUTE_READ : PAGE_EXECUTE); }
+            else if (r) { protect = w ? PAGE_READWRITE : PAGE_READONLY; }
+            regions.push_back({start, end, protect});
+        }
+        return regions;
+    }
+
+    auto maps_snapshot(bool refresh = false) -> const std::vector<MapsRegion>&
+    {
+        static std::vector<MapsRegion> regions = read_maps();
+        if (refresh) { regions = read_maps(); }
+        return regions;
+    }
+
+    // Like VirtualQuery: a mapped region comes back committed with its protection; an address in a
+    // gap comes back as a free (not committed) region that ends where the next mapping starts.
+    auto VirtualQuery(const void* address, MEMORY_BASIC_INFORMATION* info, size_t) -> size_t
+    {
+        const auto target = reinterpret_cast<uintptr_t>(address);
+        const auto& regions = maps_snapshot();
+        auto next = std::upper_bound(regions.begin(), regions.end(), target, [](uintptr_t value, const MapsRegion& region) { return value < region.start; });
+        if (next != regions.begin() && target < std::prev(next)->end)
+        {
+            const auto& region = *std::prev(next);
+            *info = {reinterpret_cast<void*>(region.start), region.end - region.start, MEM_COMMIT, region.protect};
+            return sizeof(MEMORY_BASIC_INFORMATION);
+        }
+        const uintptr_t gap_end = next == regions.end() ? target + 0x1000 : next->start;
+        *info = {reinterpret_cast<void*>(target), gap_end - target, 0, PAGE_NOACCESS};
+        return sizeof(MEMORY_BASIC_INFORMATION);
+    }
+
+    auto GetSystemInfo(SYSTEM_INFO* info) -> void
+    {
+        maps_snapshot(true);
+        info->dwPageSize = static_cast<unsigned long>(sysconf(_SC_PAGESIZE));
+        info->lpMinimumApplicationAddress = reinterpret_cast<void*>(0x10000);
+        info->lpMaximumApplicationAddress = reinterpret_cast<void*>(0x7ffffffeffff);
+    }
+} // namespace
+#endif
 
 namespace RC
 {

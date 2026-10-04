@@ -14,8 +14,10 @@ namespace RC
       private:
         bool enabled = false;
         void* m_previous_exception_filter = nullptr;
+#ifdef _WIN32
         std::unique_ptr<PLH::IatHook> m_set_unhandled_exception_filter_hook;
         uint64_t m_hook_trampoline_set_unhandled_exception_filter_hook;
+#endif
 
       public:
         CrashDumper();

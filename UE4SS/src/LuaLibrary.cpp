@@ -9,7 +9,9 @@
 #include <Unreal/FOutputDevice.hpp>
 #include <Unreal/UnrealInitializer.hpp>
 
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 
 namespace RC::LuaLibrary
 {
@@ -102,7 +104,7 @@ namespace RC::LuaLibrary
 
         if (output_device)
         {
-            output_device->Log(FromCharTypePtr<TCHAR>(outdevice_string.c_str()));
+            output_device->Log(FromCharTypePtr<Unreal::TCHAR>(outdevice_string.c_str()));
         }
 
         return 0;
@@ -118,7 +120,11 @@ namespace RC::LuaLibrary
         }
 
         int32_t* int32_ptr = reinterpret_cast<int32_t*>(lua.get_integer());
+#ifdef _WIN32
         int32_t int32_val = Helper::Casting::offset_deref_safe<int32_t>(int32_ptr, 0, GetCurrentProcess());
+#else
+        int32_t int32_val = Helper::Casting::offset_deref_safe<int32_t>(int32_ptr, 0, nullptr);
+#endif
 
         if (int32_val == 0)
         {
@@ -245,9 +251,9 @@ namespace RC::LuaLibrary
             // TODO: Remove this in non-debug versions
             /*
             const std::string tmp_var_name = variable_name;
-            const std::wstring variable_name_wide = std::wstring(tmp_var_name.begin(), tmp_var_name.end());
+            const StringType variable_name_wide = StringType(tmp_var_name.begin(), tmp_var_name.end());
             const std::string tmp_mod_name = mod_name;
-            const std::wstring mod_name_wide = std::wstring(tmp_mod_name.begin(), tmp_mod_name.end());
+            const StringType mod_name_wide = StringType(tmp_mod_name.begin(), tmp_mod_name.end());
             Output::send(STR("Setting variable '{}' in mod '{}' to {}\n"), variable_name_wide, mod_name_wide, new_value);
             //*/
 
@@ -301,16 +307,16 @@ namespace RC::LuaLibrary
             // TODO: Remove this in non-debug versions
             /*
             const std::string tmp_var_name = variable_name;
-            const std::wstring variable_name_wide = std::wstring(tmp_var_name.begin(), tmp_var_name.end());
+            const StringType variable_name_wide = StringType(tmp_var_name.begin(), tmp_var_name.end());
             const std::string tmp_mod_name = mod_name;
-            const std::wstring mod_name_wide = std::wstring(tmp_mod_name.begin(), tmp_mod_name.end());
+            const StringType mod_name_wide = StringType(tmp_mod_name.begin(), tmp_mod_name.end());
 
             switch (external_data.data1_type)
             {
                 case DefaultDataType::ConstCharPtr:
                 {
                     const std::string tmp_data1_value_ansi = external_data.data1.as_string;
-                    const std::wstring data1_value_wide = std::wstring(tmp_data1_value_ansi.begin(), tmp_data1_value_ansi.end());
+                    const StringType data1_value_wide = StringType(tmp_data1_value_ansi.begin(), tmp_data1_value_ansi.end());
                     Output::send(STR("Setting '{}.data1' as string to '{}' in mod '{}'"), variable_name_wide, data1_value_wide, mod_name_wide);
                     break;
                 }
@@ -408,9 +414,9 @@ namespace RC::LuaLibrary
             // TODO: Remove this in non-debug versions
             /*
             const std::string tmp_func_name = function_name;
-            const std::wstring func_name_wide = std::wstring(tmp_func_name.begin(), tmp_func_name.end());
+            const StringType func_name_wide = StringType(tmp_func_name.begin(), tmp_func_name.end());
             const std::string tmp_mod_name = mod_name;
-            const std::wstring mod_name_wide = std::wstring(tmp_mod_name.begin(), tmp_mod_name.end());
+            const StringType mod_name_wide = StringType(tmp_mod_name.begin(), tmp_mod_name.end());
             Output::send(STR("Calling script function '{}' in mod '{}'\n"), func_name_wide, mod_name_wide);
             //*/
 

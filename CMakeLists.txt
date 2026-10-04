@@ -12,6 +12,10 @@ if(WIN32)
     enable_language(CXX ASM_MASM)
 else()
     enable_language(CXX)
+    # Everything ends up inside libUE4SS.so: static dependencies must be position independent too.
+    set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+    # Microsoft secure-CRT names (printf_s, strncpy_s, ...) over the standard library; see the header.
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform/LinuxMsvcCrtCompat.hpp>")
 endif()
 include(CheckIPOSupported)
 include(GNUInstallDirs)

@@ -36,6 +36,7 @@
 #include <Unreal/UnrealFlags.hpp>
 #include <Unreal/UnrealVersion.hpp>
 
+#ifdef _WIN32
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -43,6 +44,11 @@
 #define NOMINMAX
 #endif
 #include <Windows.h>
+#else
+#include <dlfcn.h>
+#include <fstream>
+#include <link.h>
+#endif
 
 // Dumps reflection data to the .jmap JSON format (https://github.com/trumank/jmap).
 // The output mirrors the layout produced by jmap_dumper/serde so existing jmap consumers
@@ -716,6 +722,7 @@ namespace RC::JMapGenerator
                     }
                 }
 
+#ifdef _WIN32
                 MEMORY_BASIC_INFORMATION info{};
                 if (VirtualQuery(reinterpret_cast<LPCVOID>(address), &info, sizeof(info)) == 0)
                 {
@@ -730,6 +737,31 @@ namespace RC::JMapGenerator
                                                        PAGE_EXECUTE_WRITECOPY)) != 0;
                     region.executable = (info.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
                 }
+#else
+                // /proc/self/maps lists every mapping with its rwx permissions; same region model.
+                Region region{};
+                bool found = false;
+                std::ifstream maps{"/proc/self/maps"};
+                std::string line;
+                while (std::getline(maps, line))
+                {
+                    uint64_t start{}, finish{};
+                    char perms[5]{};
+                    if (std::sscanf(line.c_str(), "%lx-%lx %4s", &start, &finish, perms) == 3 && address >= start && address < finish)
+                    {
+                        region.base = start;
+                        region.end = finish;
+                        region.readable = perms[0] == 'r';
+                        region.executable = perms[2] == 'x';
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found)
+                {
+                    return nullptr;
+                }
+#endif
                 auto [inserted, _] = m_regions.insert_or_assign(region.base, region);
                 return &inserted->second;
             }
@@ -1072,7 +1104,7 @@ namespace RC::JMapGenerator
                 std::string cpp_type_utf8{};
                 if (cpp_type_view->Data && cpp_type_view->ArrayNum > 0)
                 {
-                    cpp_type_utf8 = to_utf8_string(StringType{static_cast<const TCHAR*>(cpp_type_view->Data), static_cast<size_t>(cpp_type_view->ArrayNum - 1)});
+                    cpp_type_utf8 = to_utf8_string(StringType{static_cast<const Unreal::TCHAR*>(cpp_type_view->Data), static_cast<size_t>(cpp_type_view->ArrayNum - 1)});
                 }
                 json.add("cpp_type", std::move(cpp_type_utf8));
                 if (Version::IsAtLeast(4, 26))
@@ -1496,11 +1528,11 @@ namespace RC::JMapGenerator
                 {
                     return JsonValue{std::string{}};
                 }
-                if (view->ArrayNum > MaxSaneContainerElements || !m_memory.is_readable(view->Data, static_cast<size_t>(view->ArrayNum) * sizeof(TCHAR)))
+                if (view->ArrayNum > MaxSaneContainerElements || !m_memory.is_readable(view->Data, static_cast<size_t>(view->ArrayNum) * sizeof(Unreal::TCHAR)))
                 {
                     return std::nullopt;
                 }
-                return JsonValue{to_utf8_string(StringType{static_cast<const TCHAR*>(view->Data), static_cast<size_t>(view->ArrayNum - 1)})};
+                return JsonValue{to_utf8_string(StringType{static_cast<const Unreal::TCHAR*>(view->Data), static_cast<size_t>(view->ArrayNum - 1)})};
             }
             else if (property_class.HasAnyCastFlags(CASTCLASS_FNameProperty))
             {
@@ -1993,11 +2025,15 @@ namespace RC::JMapGenerator
             std::string game_name = to_utf8_string(*UKismetSystemLibrary::GetGameName());
             auto build_change_list = parse_build_change_list(engine_version);
 
+#ifdef _WIN32
             wchar_t module_path[MAX_PATH]{};
             GetModuleFileNameW(nullptr, module_path, MAX_PATH);
-            std::wstring module_path_wide{module_path};
-            auto separator = module_path_wide.find_last_of(L"/\\");
-            std::string source = to_utf8_string(separator == std::wstring::npos ? module_path_wide : module_path_wide.substr(separator + 1));
+            StringType module_path_wide{module_path};
+#else
+            StringType module_path_wide = to_generic_string(std::filesystem::read_symlink("/proc/self/exe").native());
+#endif
+            auto separator = module_path_wide.find_last_of(STR("/\\"));
+            std::string source = to_utf8_string(separator == StringType::npos ? module_path_wide : module_path_wide.substr(separator + 1));
 
             JsonObject metadata{};
             metadata.add("tool", "UE4SS JMapGenerator (https://github.com/UE4SS-RE/RE-UE4SS)");
@@ -2022,7 +2058,7 @@ namespace RC::JMapGenerator
             std::ofstream file{output_path, std::ios::binary};
             if (!file)
             {
-                Output::send<LogLevel::Error>(STR("[JMapGenerator] Failed to open output file: {}\n"), output_path.wstring());
+                Output::send<LogLevel::Error>(STR("[JMapGenerator] Failed to open output file: {}\n"), to_generic_string(output_path.native()));
                 return;
             }
 
@@ -2030,7 +2066,28 @@ namespace RC::JMapGenerator
             sink.append("{\n  \"metadata\": ");
             write_json(sink, JsonValue{std::move(metadata)}, 1);
             sink.append(",\n  \"image_base_address\": ");
+#ifdef _WIN32
             json_escape_to(sink, hex_address(reinterpret_cast<uint64_t>(GetModuleHandleW(nullptr))));
+#else
+            // The main executable is the first object dl_iterate_phdr reports; its image base is the
+            // load bias plus the lowest PT_LOAD address (0x200000 or so for a non-PIE Unreal server).
+            uint64_t image_base = 0;
+            dl_iterate_phdr(
+                    [](dl_phdr_info* info, size_t, void* data) -> int {
+                        uint64_t lowest = UINT64_MAX;
+                        for (int i = 0; i < info->dlpi_phnum; ++i)
+                        {
+                            if (info->dlpi_phdr[i].p_type == PT_LOAD && info->dlpi_phdr[i].p_vaddr < lowest)
+                            {
+                                lowest = info->dlpi_phdr[i].p_vaddr;
+                            }
+                        }
+                        *static_cast<uint64_t*>(data) = info->dlpi_addr + (lowest == UINT64_MAX ? 0 : lowest);
+                        return 1;
+                    },
+                    &image_base);
+            json_escape_to(sink, hex_address(image_base));
+#endif
             if (auto engine_offsets = build_engine_offsets(); !engine_offsets.members.empty())
             {
                 sink.append(",\n  \"engine_offsets\": ");
@@ -2092,7 +2149,7 @@ namespace RC::JMapGenerator
             file.flush();
 
             Output::send(STR("[JMapGenerator] Dump complete: {} objects, {} vtables, {} warnings\n"), m_objects.size(), vtables.size(), m_warning_count);
-            Output::send(STR("[JMapGenerator] Output file: {}\n"), output_path.wstring());
+            Output::send(STR("[JMapGenerator] Output file: {}\n"), to_generic_string(output_path.native()));
         }
 
         // FName's alignment is fixed at compile time (FNAME_ALIGN8), while the engine's real layout is

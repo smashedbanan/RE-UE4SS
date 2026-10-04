@@ -35,7 +35,12 @@ namespace RC
             try
             {
                 static const auto timezone = std::chrono::current_zone();
+#ifdef _WIN32
                 const auto now = std::chrono::time_point_cast<std::chrono::system_clock::duration>(timezone->to_local(std::chrono::system_clock::now()));
+#else
+                const auto local = std::chrono::time_point_cast<std::chrono::system_clock::duration>(timezone->to_local(std::chrono::system_clock::now()));
+                const std::chrono::sys_time<std::chrono::system_clock::duration> now{local.time_since_epoch()};
+#endif
                 return fmt::vformat(fmt::detail::to_string_view(format), RC_STD_MAKE_FORMAT_ARGS(now));
             }
             catch (std::runtime_error&)

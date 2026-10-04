@@ -1,7 +1,11 @@
 #define NOMINMAX
 
 #include <filesystem>
+#ifdef _WIN32
 #include <Windows.h>
+#else
+#include <dlfcn.h>
+#endif
 
 #include <DynamicOutput/DynamicOutput.hpp>
 #include <Helpers/SysError.hpp>
@@ -21,15 +25,21 @@ namespace RC
             return;
         }
 
-        auto dll_path = m_dlls_path / STR("main.dll");
+#ifdef _WIN32
+        constexpr auto library_extension = STR("dll");
+#else
+        // Same layout on Linux, with a shared object: dlls/main.so or dlls/<mod name>.so.
+        constexpr auto library_extension = STR("so");
+#endif
+        auto dll_path = m_dlls_path / fmt::format(STR("main.{}"), library_extension);
         if (!std::filesystem::exists(dll_path))
         {
-            dll_path = m_dlls_path / fmt::format(STR("{}.dll"), mod_name);
+            dll_path = m_dlls_path / fmt::format(STR("{}.{}"), mod_name, library_extension);
 
             if (!std::filesystem::exists(dll_path))
             {
-                Output::send<LogLevel::Warning>(STR("Failed to load C++ mod {}, dlls folder must contain either main.dll or {}\n"),
-                                                m_mod_name, ensure_str(dll_path.filename()));
+                Output::send<LogLevel::Warning>(STR("Failed to load C++ mod {}, dlls folder must contain either main.{} or {}\n"),
+                                                m_mod_name, library_extension, ensure_str(dll_path.filename()));
                 set_installable(false);
                 return;
             }
@@ -37,6 +47,7 @@ namespace RC
 
         m_dll_filename = ensure_str(dll_path.filename());
 
+#ifdef _WIN32
         // Add mods dlls directory to search path for dynamic/shared linked libraries in mods
         m_dlls_path_cookie = AddDllDirectory(m_dlls_path.c_str());
         m_main_dll_module = LoadLibraryExW(dll_path.c_str(), NULL, LOAD_LIBRARY_SEARCH_DLL_LOAD_DIR | LOAD_LIBRARY_SEARCH_DEFAULT_DIRS);
@@ -51,13 +62,34 @@ namespace RC
 
         m_start_mod_func = reinterpret_cast<start_type>(GetProcAddress(m_main_dll_module, "start_mod"));
         m_uninstall_mod_func = reinterpret_cast<uninstall_type>(GetProcAddress(m_main_dll_module, "uninstall_mod"));
+#else
+        // RTLD_LOCAL: two mods may export the same symbol names (start_mod/uninstall_mod).
+        m_main_dll_module = dlopen(dll_path.c_str(), RTLD_NOW | RTLD_LOCAL);
+
+        if (!m_main_dll_module)
+        {
+            const char* error = dlerror();
+            Output::send<LogLevel::Warning>(STR("Failed to load shared object <{}> for mod {}, error: {}\n"),
+                                            ensure_str(dll_path), m_mod_name, ensure_str(error ? error : "unknown"));
+            set_installable(false);
+            return;
+        }
+
+        m_start_mod_func = reinterpret_cast<start_type>(dlsym(m_main_dll_module, "start_mod"));
+        m_uninstall_mod_func = reinterpret_cast<uninstall_type>(dlsym(m_main_dll_module, "uninstall_mod"));
+#endif
 
         if (!m_start_mod_func || !m_uninstall_mod_func)
         {
             Output::send<LogLevel::Warning>(STR("Failed to find exported mod lifecycle functions for mod {}\n"), m_mod_name);
 
+#ifdef _WIN32
             FreeLibrary(m_main_dll_module);
             m_main_dll_module = NULL;
+#else
+            dlclose(m_main_dll_module);
+            m_main_dll_module = nullptr;
+#endif
 
             set_installable(false);
             return;
@@ -227,8 +259,12 @@ namespace RC
     {
         if (m_main_dll_module)
         {
+#ifdef _WIN32
             FreeLibrary(m_main_dll_module);
             RemoveDllDirectory(m_dlls_path_cookie);
+#else
+            dlclose(m_main_dll_module);
+#endif
         }
     }
 } // namespace RC

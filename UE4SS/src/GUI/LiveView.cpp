@@ -1886,46 +1886,6 @@ namespace RC::GUI
         }
     }
 
-    auto is_player_controlled(UObject* object) -> bool
-    {
-        static auto IsPlayerControlled = [](UObject* pawn) -> bool {
-            static auto function = UObjectGlobals::StaticFindObject<UFunction*>(nullptr, nullptr, STR("/Script/Engine.Pawn:IsPlayerControlled"));
-            if (!function)
-            {
-                return false;
-            }
-            struct Params
-            {
-                bool ReturnValue{};
-            };
-            Params params{};
-            pawn->ProcessEvent(function, &params);
-            return params.ReturnValue;
-        };
-
-        static auto pawn = UObjectGlobals::StaticFindObject<UClass*>(nullptr, nullptr, STR("/Script/Engine.Pawn"));
-        if (!pawn)
-        {
-            return false;
-        }
-
-        if (object->IsA(pawn))
-        {
-            return IsPlayerControlled(object);
-        }
-
-        auto outer = object->GetOuterPrivate();
-        while (outer)
-        {
-            if (outer->IsA(pawn) && IsPlayerControlled(outer))
-            {
-                return true;
-            }
-            outer = outer->GetOuterPrivate();
-        }
-
-        return false;
-    }
 
     template <typename Stringifier, typename ObjectType>
     auto render_flags(ObjectType* generic_instance, const char* display_label) -> void

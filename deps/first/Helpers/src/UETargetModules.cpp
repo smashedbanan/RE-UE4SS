@@ -9,8 +9,6 @@
 #define NOMINMAX
 #include <Windows.h>
 #include <Psapi.h>
-#else
-#error "UETargetModules is only supported on Windows"
 #endif
 
 namespace RC

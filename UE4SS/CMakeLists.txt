@@ -53,8 +53,16 @@ message("UE4SS Version: ${UE4SS_LIB_VERSION_MAJOR}.${UE4SS_LIB_VERSION_MINOR}.${
 
 # Find source files
 file(GLOB_RECURSE UE4SS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
+# Each platform has its own entry point: DllMain on Windows, an LD_PRELOAD constructor on Linux.
+if(WIN32)
+    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_linux\\.cpp$")
+else()
+    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_ue4ss_rewritten\\.cpp$")
+endif()
 if(NOT UE4SS_GUI_ENABLED)
+    # Dumpers.cpp also holds the dump functions the Lua API calls; only its tab needs the GUI.
     list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/GUI/")
+    list(APPEND UE4SS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/GUI/Dumpers.cpp")
 endif()
 file(GLOB_RECURSE UE4SS_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.hpp")
 

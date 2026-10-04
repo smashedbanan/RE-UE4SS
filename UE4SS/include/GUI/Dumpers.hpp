@@ -5,6 +5,11 @@ namespace RC::Unreal
     class UObject;
 }
 
+namespace RC::GUI
+{
+    auto is_player_controlled(Unreal::UObject* object) -> bool;
+}
+
 namespace RC::GUI::Dumpers
 {
     using namespace Unreal;

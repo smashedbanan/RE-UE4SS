@@ -5,7 +5,9 @@
 
 #include <Common.hpp>
 #include <File/File.hpp>
+#ifdef HAS_GUI
 #include <GUI/GUI.hpp>
+#endif
 #include <Input/KeyDef.hpp>
 #include <Unreal/UnrealInitializer.hpp>
 
@@ -88,8 +90,10 @@ namespace RC
             bool DebugConsoleVisible{true};
             float DebugGUIFontScaling{1.0};
             bool DebugGUIUseMonospace{false};
+#ifdef HAS_GUI
             GUI::GfxBackend GraphicsAPI{GUI::GfxBackend::GLFW3_OpenGL3};
             GUI::RenderMode RenderMode{GUI::RenderMode::ExternalThread};
+#endif
             Input::Key ToggleGUIKey{Input::Key::O};
         } Debug;
 

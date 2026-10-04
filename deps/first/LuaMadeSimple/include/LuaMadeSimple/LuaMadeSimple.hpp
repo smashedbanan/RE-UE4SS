@@ -1,5 +1,7 @@
 #pragma once
 
+#include <memory>
+
 #include <format>
 #include <functional>
 #include <optional>
@@ -272,7 +274,7 @@ namespace RC::LuaMadeSimple
                 {
                     lua_pushboolean(get_lua_instance().get_lua_state(), value);
                 }
-                else if constexpr (std::is_same_v<ValueType, int> || std::is_same_v<ValueType, long long>)
+                else if constexpr (std::is_same_v<ValueType, int> || std::is_same_v<ValueType, long> || std::is_same_v<ValueType, long long>)
                 {
                     lua_pushinteger(get_lua_instance().get_lua_state(), value);
                 }

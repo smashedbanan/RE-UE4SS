@@ -28,8 +28,56 @@
 #include <Unreal/CoreUObject/UObject/Class.hpp>
 #include <Unreal/UnrealInitializer.hpp>
 #include <chrono>
+#ifdef HAS_GUI
 #include <imgui.h>
+#endif
 #include <glaze/glaze.hpp>
+
+namespace RC::GUI
+{
+    using namespace ::RC::Unreal;
+
+    auto is_player_controlled(UObject* object) -> bool
+    {
+        static auto IsPlayerControlled = [](UObject* pawn) -> bool {
+            static auto function = UObjectGlobals::StaticFindObject<UFunction*>(nullptr, nullptr, STR("/Script/Engine.Pawn:IsPlayerControlled"));
+            if (!function)
+            {
+                return false;
+            }
+            struct Params
+            {
+                bool ReturnValue{};
+            };
+            Params params{};
+            pawn->ProcessEvent(function, &params);
+            return params.ReturnValue;
+        };
+
+        static auto pawn = UObjectGlobals::StaticFindObject<UClass*>(nullptr, nullptr, STR("/Script/Engine.Pawn"));
+        if (!pawn)
+        {
+            return false;
+        }
+
+        if (object->IsA(pawn))
+        {
+            return IsPlayerControlled(object);
+        }
+
+        auto outer = object->GetOuterPrivate();
+        while (outer)
+        {
+            if (outer->IsA(pawn) && IsPlayerControlled(outer))
+            {
+                return true;
+            }
+            outer = outer->GetOuterPrivate();
+        }
+
+        return false;
+    }
+} // namespace RC::GUI
 
 namespace RC::GUI::Dumpers
 {
@@ -89,21 +137,21 @@ namespace RC::GUI::Dumpers
     {
         StringType root_actor_buffer{};
 
-        static auto location_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("RelativeLocation")));
-        static auto rotation_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("RelativeRotation")));
-        static auto scale_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("RelativeScale3D")));
+        static auto location_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeLocation")));
+        static auto rotation_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeRotation")));
+        static auto scale_property = root_component->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeScale3D")));
 
-        auto location = root_component->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<TCHAR>(STR("RelativeLocation")));
+        auto location = root_component->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeLocation")));
         FString location_string{};
         location_property->ExportTextItem(location_string, location, nullptr, nullptr, 0);
         root_actor_buffer.append(fmt::format(STR("\"{}\","), *location_string));
 
-        auto rotation = root_component->GetValuePtrByPropertyNameInChain<FRotator>(FromCharTypePtr<TCHAR>(STR("RelativeRotation")));
+        auto rotation = root_component->GetValuePtrByPropertyNameInChain<FRotator>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeRotation")));
         FString rotation_string{};
         rotation_property->ExportTextItem(rotation_string, rotation, nullptr, nullptr, 0);
         root_actor_buffer.append(fmt::format(STR("\"{}\","), *rotation_string));
 
-        auto scale = root_component->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<TCHAR>(STR("RelativeScale3D")));
+        auto scale = root_component->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeScale3D")));
         FString scale_string{};
         scale_property->ExportTextItem(scale_string, scale, nullptr, nullptr, 0);
         root_actor_buffer.append(fmt::format(STR("\"{}\","), *scale_string));
@@ -126,7 +174,7 @@ namespace RC::GUI::Dumpers
 
             auto actor = static_cast<AActor*>(object);
 
-            auto root_component = actor->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<TCHAR>(STR("RootComponent")));
+            auto root_component = actor->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<Unreal::TCHAR>(STR("RootComponent")));
             if (!root_component || !*root_component)
             {
                 return LoopAction::Continue;
@@ -137,7 +185,7 @@ namespace RC::GUI::Dumpers
             actor_buffer.append(fmt::format(STR("Row_{},"), actor_count));
 
             static auto game_mode_base = UObjectGlobals::FindFirstOf(STR("GameModeBase"));
-            static auto class_property = game_mode_base->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("GameStateClass")));
+            static auto class_property = game_mode_base->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("GameStateClass")));
             FString actor_class_string{};
             class_property->ExportTextItem(actor_class_string, &actor->GetClassPrivate(), nullptr, nullptr, 0);
             actor_buffer.append(fmt::format(STR("{},"), *actor_class_string));
@@ -152,7 +200,7 @@ namespace RC::GUI::Dumpers
                 actor_buffer.append(STR("("));
                 for (auto [static_mesh_component_ptr, static_mesh_component_index] : static_mesh_components | views::enumerate)
                 {
-                    const auto mesh = *static_mesh_component_ptr->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<TCHAR>(STR("StaticMesh")));
+                    const auto mesh = *static_mesh_component_ptr->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<Unreal::TCHAR>(STR("StaticMesh")));
                     if (!mesh)
                     {
                         Output::send<LogLevel::Warning>(STR("SKIPPING COMPONENT! StaticMeshComponent '{}' has no mesh.\n"),
@@ -160,7 +208,7 @@ namespace RC::GUI::Dumpers
                         continue;
                     }
 
-                    static auto mesh_property = static_mesh_component_ptr->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("StaticMesh")));
+                    static auto mesh_property = static_mesh_component_ptr->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("StaticMesh")));
                     FString mesh_string{};
                     mesh_property->ExportTextItem(mesh_string, &mesh, nullptr, nullptr, 0);
                     actor_buffer.append(fmt::format(STR("(StaticMesh={}',"), *mesh_string));
@@ -258,7 +306,7 @@ namespace RC::GUI::Dumpers
 
             auto actor = static_cast<AActor*>(object);
 
-            auto root_component = actor->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<TCHAR>(STR("RootComponent")));
+            auto root_component = actor->GetValuePtrByPropertyNameInChain<UObject*>(FromCharTypePtr<Unreal::TCHAR>(STR("RootComponent")));
             if (!root_component || !*root_component)
             {
                 return LoopAction::Continue;
@@ -269,7 +317,7 @@ namespace RC::GUI::Dumpers
             actor_json_object["Name"] = to_string(fmt::format(STR("Row_{}"), actor_count));
 
             static auto game_mode_base = UObjectGlobals::FindFirstOf(STR("GameModeBase"));
-            static auto class_property = game_mode_base->GetPropertyByNameInChain(FromCharTypePtr<TCHAR>(STR("GameStateClass")));
+            static auto class_property = game_mode_base->GetPropertyByNameInChain(FromCharTypePtr<Unreal::TCHAR>(STR("GameStateClass")));
             FString actor_class_string{};
             class_property->ExportTextItem(actor_class_string, &actor->GetClassPrivate(), nullptr, nullptr, 0);
             actor_json_object["Actor"] = to_string(fmt::format(STR("{}"), StringViewType{*actor_class_string}));
@@ -281,21 +329,21 @@ namespace RC::GUI::Dumpers
             root_component_json_object["SceneComponentClass"] = to_string(fmt::format(STR("{}"), StringViewType{*root_component_class_string}));
 
             glz::generic location_json_object = glz::generic::object_t{};
-            auto location = (*root_component)->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<TCHAR>(STR("RelativeLocation")));
+            auto location = (*root_component)->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeLocation")));
             location_json_object["X"] = location->X();
             location_json_object["Y"] = location->Y();
             location_json_object["Z"] = location->Z();
             root_component_json_object["Location"] = std::move(location_json_object);
 
             glz::generic rotation_json_object = glz::generic::object_t{};
-            auto rotation = (*root_component)->GetValuePtrByPropertyNameInChain<FRotator>(FromCharTypePtr<TCHAR>(STR("RelativeRotation")));
+            auto rotation = (*root_component)->GetValuePtrByPropertyNameInChain<FRotator>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeRotation")));
             rotation_json_object["Pitch"] = rotation->GetPitch();
             rotation_json_object["Yaw"] = rotation->GetYaw();
             rotation_json_object["Roll"] = rotation->GetRoll();
             root_component_json_object["Rotation"] = std::move(rotation_json_object);
 
             glz::generic scale_json_object = glz::generic::object_t{};
-            auto scale = (*root_component)->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<TCHAR>(STR("RelativeScale3D")));
+            auto scale = (*root_component)->GetValuePtrByPropertyNameInChain<FVector>(FromCharTypePtr<Unreal::TCHAR>(STR("RelativeScale3D")));
             scale_json_object["X"] = scale->X();
             scale_json_object["Y"] = scale->Y();
             scale_json_object["Z"] = scale->Z();
@@ -524,17 +572,17 @@ namespace RC::GUI::Dumpers
     static auto sdk_backend_from_ascii(const UEGenerator::SDKBackendSettings_ASCII& settings_ascii) -> UEGenerator::SDKBackendSettings
     {
         UEGenerator::SDKBackendSettings settings{};
-        settings.IncludePrefix = to_wstring(settings_ascii.IncludePrefix.value);
-        settings.HeaderFileExtension = to_wstring(settings_ascii.HeaderFileExtension.value);
-        settings.UnrealImplementationNamespace = to_wstring(settings_ascii.UnrealImplementationNamespace.value);
-        settings.SDKNamespace = to_wstring(settings_ascii.SDKNamespace.value);
+        settings.IncludePrefix = ensure_str(settings_ascii.IncludePrefix.value);
+        settings.HeaderFileExtension = ensure_str(settings_ascii.HeaderFileExtension.value);
+        settings.UnrealImplementationNamespace = ensure_str(settings_ascii.UnrealImplementationNamespace.value);
+        settings.SDKNamespace = ensure_str(settings_ascii.SDKNamespace.value);
         for (const auto& setting : settings_ascii.ExcludedTypes.value)
         {
-            settings.ExcludedTypes.emplace(to_wstring(setting));
+            settings.ExcludedTypes.emplace(ensure_str(setting));
         }
         for (const auto& [key, value] : settings_ascii.UnreflectedTypes.value)
         {
-            settings.UnreflectedTypes.emplace(to_wstring(key), to_wstring(value));
+            settings.UnreflectedTypes.emplace(ensure_str(key), ensure_str(value));
         }
         return settings;
     }
@@ -582,7 +630,7 @@ namespace RC::GUI::Dumpers
             if (ec)
             {
                 Output::send<LogLevel::Error>(STR("Error '{}' while reading the built-in SDK generator backend\n"),
-                                              to_wstring(glz::format_error(ec, settings_buffer)));
+                                              ensure_str(glz::format_error(ec, settings_buffer)));
             }
             else
             {
@@ -609,8 +657,8 @@ namespace RC::GUI::Dumpers
             if (ec)
             {
                 Output::send<LogLevel::Error>(STR("Error '{}' while trying to read JSON: '{}'\n"),
-                                              to_wstring(glz::format_error(ec, settings_buffer)),
-                                              item.path().wstring());
+                                              ensure_str(glz::format_error(ec, settings_buffer)),
+                                              to_generic_string(item.path().native()));
                 continue;
             }
 
@@ -618,6 +666,7 @@ namespace RC::GUI::Dumpers
         }
     }
 
+#ifdef HAS_GUI
     auto render() -> void
     {
         if (!UnrealInitializer::IsInitialized())
@@ -783,4 +832,5 @@ namespace RC::GUI::Dumpers
         }
         ImGui::EndDisabled();
     }
+#endif
 } // namespace RC::GUI::Dumpers

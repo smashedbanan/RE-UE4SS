@@ -1,5 +1,7 @@
 #pragma once
 
+#include <cstdio>
+#include <cstring>
 #include <string>
 
 #include <String/StringType.hpp>
@@ -25,12 +27,17 @@ namespace RC
         // The default message will be used which can't be too small since it's calculated at compile-time
         if (msg_len < out_string_length)
         {
+#ifdef _WIN32
             sprintf_s(out_string, out_string_length, fmt, args...);
+#else
+            snprintf(out_string, out_string_length, fmt, args...);
+#endif
         }
 
         return out_string;
     }
 
+#ifdef _WIN32
     template <typename... Args>
     auto static fmt(const wchar_t* fmt, Args... args) -> std::wstring
     {
@@ -55,4 +62,5 @@ namespace RC
 
         return out_string;
     }
+#endif
 } // namespace RC

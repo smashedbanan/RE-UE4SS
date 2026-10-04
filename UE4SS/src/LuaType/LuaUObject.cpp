@@ -602,7 +602,7 @@ namespace RC::LuaType
                 lua.discard_value(-1);
                 Output::send<LogLevel::Verbose>(
                         STR("convert_lua_table_to_struct: Skipping field '{}' of type '{}' (no handler)\n"),
-                        to_wstring(field_name),
+                        ensure_str(field_name),
                         field_type_fname.ToString()
                         );
 
@@ -698,7 +698,7 @@ namespace RC::LuaType
                 // Skip fields without handlers
                 Output::send<LogLevel::Verbose>(
                         STR("convert_struct_to_lua_table: Skipping field '{}' of type '{}' (no handler)\n"),
-                        to_wstring(field_name),
+                        ensure_str(field_name),
                         field_type_fname.ToString()
                         );
             }
@@ -1742,7 +1742,7 @@ namespace RC::LuaType
             if (params.lua.is_string(params.stored_at_index))
             {
                 auto lua_string = params.lua.get_string(params.stored_at_index);
-                auto fstring = Unreal::FString{FromCharTypePtr<TCHAR>(ensure_str(lua_string).c_str())};
+                auto fstring = Unreal::FString{FromCharTypePtr<Unreal::TCHAR>(ensure_str(lua_string).c_str())};
                 *string = fstring;
             }
             else if (params.lua.is_userdata(params.stored_at_index))

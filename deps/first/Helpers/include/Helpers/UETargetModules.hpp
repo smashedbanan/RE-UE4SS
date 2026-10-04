@@ -5,11 +5,30 @@
 #include <array>
 #include <string>
 
+#ifdef _WIN32
 // Windows.h forward declarations
 struct _SYSTEM_INFO;
 typedef _SYSTEM_INFO SYSTEM_INFO;
 struct _MODULEINFO;
 typedef _MODULEINFO MODULEINFO;
+#else
+// There is no Windows.h on Linux: the same shapes, with the fields the scanner uses. Filled from
+// dl_iterate_phdr (modules) and /proc/self/maps (memory) by the Linux code paths.
+struct _MODULEINFO
+{
+    void* lpBaseOfDll;
+    unsigned long SizeOfImage;
+    void* EntryPoint;
+};
+typedef _MODULEINFO MODULEINFO;
+struct _SYSTEM_INFO
+{
+    void* lpMinimumApplicationAddress;
+    void* lpMaximumApplicationAddress;
+    unsigned long dwPageSize;
+};
+typedef _SYSTEM_INFO SYSTEM_INFO;
+#endif
 
 namespace RC
 {

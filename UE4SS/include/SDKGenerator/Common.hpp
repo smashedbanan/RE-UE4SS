@@ -48,7 +48,7 @@ namespace RC
                                         StringType use_this_namespace = {}) -> File::StringType;
         auto generate_property_lua_name(Unreal::FProperty* property, bool is_top_level_declaration, Unreal::UObject* class_context) -> File::StringType;
         auto sanitize_property_name(const File::StringType& property_name) -> File::StringType;
-        auto sanitize_enumeration_name(const std::wstring& enumeration_name) -> StringType;
+        auto sanitize_enumeration_name(const StringType& enumeration_name) -> StringType;
         auto get_highest_enum(Unreal::UEnum* uenum, bool include_max = false) -> int64_t;
         auto generate_enum_value_definitions(Unreal::UEnum* uenum,
                                              const std::function<void(const StringType&)>&,

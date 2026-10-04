@@ -1,6 +1,8 @@
 #define NOMINMAX
 
+#ifdef _WIN32
 #include <Windows.h>
+#endif
 
 #ifdef TEXT
 #undef TEXT
@@ -16,9 +18,11 @@
 #include <Profiler/Profiler.hpp>
 #include <DynamicOutput/DynamicOutput.hpp>
 #include <ExceptionHandling.hpp>
+#ifdef HAS_GUI
 #include <GUI/ConsoleOutputDevice.hpp>
 #include <GUI/GUI.hpp>
 #include <GUI/LiveView.hpp>
+#endif
 #include <Helpers/ASM.hpp>
 #include <Helpers/Format.hpp>
 #include <Helpers/Integer.hpp>
@@ -64,7 +68,9 @@
 #include <UE4SSRuntime.hpp>
 #include <UnrealDef.hpp>
 
+#ifdef _WIN32
 #include <polyhook2/PE/IatHook.hpp>
+#endif
 
 #include <FilesystemWatcher.hpp>
 
@@ -148,6 +154,7 @@ namespace RC
         Output::send(STR("\n##### MEMBER OFFSETS END ({}) #####\n\n"), is_coalesced == IsCoalesced::No ? STR("MemberVariableLayout") : STR("Coalesced"));
     }
 
+#ifdef _WIN32
     void* HookedLoadLibraryA(const char* dll_name)
     {
         UE4SSProgram& program = UE4SSProgram::get_program();
@@ -179,6 +186,7 @@ namespace RC
         program.fire_dll_load_for_cpp_mods(ToCharTypePtr(dll_name));
         return lib;
     }
+#endif
 
     UE4SSProgram::UE4SSProgram(const std::filesystem::path& moduleFilePath, std::initializer_list<BinaryOptions> options) : MProgram(options)
     {
@@ -206,7 +214,9 @@ namespace RC
 
             m_crash_dumper.set_full_memory_dump(settings_manager.CrashDump.FullMemoryDump);
 
+#ifdef HAS_GUI
             m_debugging_gui.set_gfx_backend(settings_manager.Debug.GraphicsAPI);
+#endif
 
             // Setup the log file
             auto& file_device = Output::set_default_devices<Output::NewFileDevice>();
@@ -227,10 +237,13 @@ namespace RC
 
             if (settings_manager.Debug.DebugConsoleEnabled)
             {
+#ifdef HAS_GUI
                 m_console_device = &Output::set_default_devices<Output::ConsoleDevice>();
                 m_console_device->set_formatter([](File::StringViewType string) -> File::StringType {
                     return fmt::format(STR("[{}] {}"), get_now_as_string(STR("{:%X}")), string);
                 });
+#endif
+#ifdef HAS_GUI
                 if (settings_manager.Debug.DebugConsoleVisible)
                 {
                     switch (settings_manager.Debug.RenderMode)
@@ -245,6 +258,8 @@ namespace RC
                         break;
                     }
                 }
+#endif
+
             }
 
             // This is experimental code that's here only for future reference
@@ -253,7 +268,7 @@ namespace RC
 
             constexpr const wchar_t* str_to_find = STR("Allocator: %s");
             void* string_address = SinglePassScanner::string_scan(str_to_find, ScanTarget::Core);
-            Output::send(STR("\n\nFound string '{}' at {}\n\n"), std::wstring_view{str_to_find}, string_address);
+            Output::send(STR("\n\nFound string '{}' at {}\n\n"), StringViewType{str_to_find}, string_address);
             //*/
 
             Output::send(STR("Console created\n"));
@@ -269,7 +284,7 @@ namespace RC
                          ensure_str(UE4SS_LIB_BUILD_GITSHA));
             bool use_local_time = true;
 #ifdef _WIN32
-            if (auto module = GetModuleHandleW(L"ntdll.dll"); module && GetProcAddress(module, "wine_get_version"))
+            if (auto module = GetModuleHandleW(STR("ntdll.dll")); module && GetProcAddress(module, "wine_get_version"))
             {
                 use_local_time = false;
             }
@@ -298,33 +313,35 @@ namespace RC
 
             Output::send(STR("UE4SS Build Configuration: {} ({})\n"), ensure_str(UE4SS_CONFIGURATION), UE4SS_COMPILER);
 
+#ifdef _WIN32
             m_load_library_a_hook = std::make_unique<PLH::IatHook>("kernel32.dll",
                                                                    "LoadLibraryA",
                                                                    std::bit_cast<uint64_t>(&HookedLoadLibraryA),
                                                                    &m_hook_trampoline_load_library_a,
-                                                                   L"");
+                                                                   STR(""));
             m_load_library_a_hook->hook();
 
             m_load_library_ex_a_hook = std::make_unique<PLH::IatHook>("kernel32.dll",
                                                                       "LoadLibraryExA",
                                                                       std::bit_cast<uint64_t>(&HookedLoadLibraryExA),
                                                                       &m_hook_trampoline_load_library_ex_a,
-                                                                      L"");
+                                                                      STR(""));
             m_load_library_ex_a_hook->hook();
 
             m_load_library_w_hook = std::make_unique<PLH::IatHook>("kernel32.dll",
                                                                    "LoadLibraryW",
                                                                    std::bit_cast<uint64_t>(&HookedLoadLibraryW),
                                                                    &m_hook_trampoline_load_library_w,
-                                                                   L"");
+                                                                   STR(""));
             m_load_library_w_hook->hook();
 
             m_load_library_ex_w_hook = std::make_unique<PLH::IatHook>("kernel32.dll",
                                                                       "LoadLibraryExW",
                                                                       std::bit_cast<uint64_t>(&HookedLoadLibraryExW),
                                                                       &m_hook_trampoline_load_library_ex_w,
-                                                                      L"");
+                                                                      STR(""));
             m_load_library_ex_w_hook->hook();
+#endif
 
             Unreal::UnrealInitializer::SetupUnrealModules();
 
@@ -445,9 +462,13 @@ namespace RC
         // At that point, the working directory will be "root/<GameName>"
         m_working_directory = m_root_directory;
 
+#ifdef _WIN32
         wchar_t exe_path_buffer[1024];
         GetModuleFileNameW(GetModuleHandle(nullptr), exe_path_buffer, 1023);
         std::filesystem::path game_exe_path = exe_path_buffer;
+#else
+        std::filesystem::path game_exe_path = std::filesystem::read_symlink("/proc/self/exe");
+#endif
         std::filesystem::path game_directory_path = game_exe_path.parent_path();
         m_legacy_root_directory = game_directory_path;
 
@@ -457,8 +478,10 @@ namespace RC
         m_game_path_and_exe_name = game_exe_path;
         m_object_dumper_output_directory = m_working_directory;
 
+#ifdef _WIN32
         // Allow loading of DLLs from the game directory
         AddDllDirectory(game_exe_path.c_str());
+#endif
 
         for (const auto& item : std::filesystem::directory_iterator(m_root_directory))
         {
@@ -493,7 +516,11 @@ namespace RC
     {
         settings_manager.Debug.SimpleConsoleEnabled = true;
         create_simple_console();
+#ifdef _WIN32
         printf_s("%S\n", FromCharTypePtr<wchar_t>(error_message.data()));
+#else
+        printf_s("%s\n", to_string(error_message).c_str());
+#endif
     }
 
     auto UE4SSProgram::setup_mod_directory_path() -> void
@@ -532,6 +559,7 @@ namespace RC
                 return fmt::format(STR("[{}] {}"), get_now_as_string(STR("{:%X}")), string);
             });
 
+#ifdef _WIN32
             if (AllocConsole())
             {
                 FILE* stdin_filename;
@@ -541,6 +569,7 @@ namespace RC
                 freopen_s(&stdout_filename, "CONOUT$", "w", stdout);
                 freopen_s(&stderr_filename, "CONOUT$", "w", stderr);
             }
+#endif
         }
     }
 
@@ -951,6 +980,7 @@ namespace RC
         Output::send(STR("m_shared_functions: {}\n"), static_cast<void*>(&m_shared_functions));
     }
 
+#ifdef HAS_GUI
     static bool s_gui_initialized_for_game_thread{};
     static bool s_gui_initializing_for_game_thread{};
     auto gui_render_thread_tick() -> void
@@ -981,12 +1011,15 @@ namespace RC
         }
         UE4SSProgram::get_program().get_debugging_ui().main_loop_internal();
     }
+#endif
+
 
     auto UE4SSProgram::on_program_start() -> void
     {
         ProfilerScope();
         using namespace Unreal;
 
+#ifdef HAS_GUI
         if (settings_manager.Debug.RenderMode == GUI::RenderMode::EngineTick)
         {
             Hook::RegisterEngineTickPostCallback([](auto&,...){gui_render_thread_tick(); }, {false, false, STR("UE4SS"), STR("ImGuiRenderHook")});
@@ -1036,6 +1069,8 @@ namespace RC
                 });
             });
         }
+#endif
+
 
 #ifdef TIME_FUNCTION_MACRO_ENABLED
         register_keydown_event(Input::Key::Y, {Input::ModifierKey::CONTROL}, [&]() {
@@ -1168,7 +1203,7 @@ namespace RC
                     {
                         return;
                     }
-                    mod_ref = std::make_unique<LuaMod>(*this, StringType{mod_ref->get_name()}, mod_ref->get_path());
+                    mod_ref = std::make_unique<LuaMod>(*this, StringType{mod_ref->get_name()}, to_generic_string(std::filesystem::path(mod_ref->get_path()).native()));
                     m_pause_events_processing = false;
                     Output::send(STR("Auto-reloading Lua mod '{}'\n"), mod_ref->get_name());
                     mod_ref->start_mod();
@@ -1538,7 +1573,7 @@ namespace RC
                 // If BOM was detected, skip the first "character" (which will be the BOM interpreted as a wide char)
                 if (has_bom)
                 {
-                    wchar_t discard;
+                    CharType discard;
                     mods_stream.get(discard);
                 }
 
@@ -1830,7 +1865,7 @@ namespace RC
         m_pause_events_processing = false;
 
         // Create a new LuaMod for this mod (same as setup_mods does)
-        auto new_mod = std::make_unique<LuaMod>(*this, std::move(mod_name), std::move(mod_path));
+        auto new_mod = std::make_unique<LuaMod>(*this, std::move(mod_name), ensure_str(mod_path));
         LuaMod* new_mod_ptr = new_mod.get();
         m_mods.emplace_back(std::move(new_mod));
 
@@ -2019,7 +2054,7 @@ namespace RC
 
         StringType mod_name = ensure_str(mod_name_str);
 
-        auto new_mod = std::make_unique<LuaMod>(*this, std::move(mod_name), std::filesystem::path(mod_path));
+        auto new_mod = std::make_unique<LuaMod>(*this, std::move(mod_name), to_generic_string(std::filesystem::path(mod_path).native()));
         LuaMod* new_mod_ptr = new_mod.get();
         m_mods.emplace_back(std::move(new_mod));
 
@@ -2097,7 +2132,7 @@ namespace RC
 
             if (has_bom)
             {
-                wchar_t discard;
+                CharType discard;
                 mods_stream.get(discard);
             }
 
@@ -2248,6 +2283,7 @@ namespace RC
         Output::send(STR("SDK generated in {} seconds.\n"), generator_duration);
     }
 
+#ifdef HAS_GUI
     auto UE4SSProgram::stop_render_thread() -> void
     {
         if (!get_debugging_ui().is_open())
@@ -2263,8 +2299,11 @@ namespace RC
         {
             get_debugging_ui().request_exit();
         }
-    }
 
+    }
+#endif
+
+#ifdef HAS_GUI
     auto UE4SSProgram::add_gui_tab(std::shared_ptr<GUI::GUITab> tab) -> void
     {
         m_debugging_gui.add_tab(tab);
@@ -2274,6 +2313,8 @@ namespace RC
     {
         m_debugging_gui.remove_tab(tab);
     }
+#endif
+
 
     auto UE4SSProgram::queue_event(EventCallable callable) -> void
     {

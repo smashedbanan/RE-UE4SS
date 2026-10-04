@@ -276,7 +276,7 @@ namespace RC::UEGenerator
         auto write_line_internal(StringType& out, int32_t& scope_level, StringType::size_type pos, StringViewType line) -> StringType::size_type
         {
             indent(out, scope_level);
-            return write_internal(out, pos, std::format(STR("{}\n"), line));
+            return write_internal(out, pos, fmt::format(STR("{}\n"), line));
         }
 
         auto write_line_internal(StringType& out) -> void
@@ -305,7 +305,7 @@ namespace RC::UEGenerator
                 static auto header_extension = STR(".") + m_backend->HeaderFileExtension;
                 if (!file->include_path().empty() && file->full_file_path().extension() == header_extension && file->id() != current_file().id())
                 {
-                    write_line(std::format(STR("#include <UE4SS_SDK/{}{}>"), to_generic_string(file->include_path().c_str()), header_extension));
+                    write_line(fmt::format(STR("#include <UE4SS_SDK/{}{}>"), to_generic_string(file->include_path().c_str()), header_extension));
                 }
             }
         }
@@ -344,7 +344,7 @@ namespace RC::UEGenerator
                 auto files_with_identical_names = get_all_files_by_name(file_name);
                 for (auto& file : files_with_identical_names)
                 {
-                    Output::send(STR("File: {}\n"), file->full_file_path().wstring());
+                    Output::send(STR("File: {}\n"), to_generic_string(file->full_file_path().native()));
                     std::filesystem::path inner_namespace_name =
                             file->related_uobject() ? std::filesystem::path{file->related_uobject()->GetOutermost()->GetName()} : std::filesystem::path{};
                     if (!inner_namespace_name.empty())
@@ -527,7 +527,7 @@ namespace RC::UEGenerator
             write_line(STR("#define UE_BEGIN_SCRIPT_FUNCTION_BODY(FunctionPath, ParmsSize) \\"));
             // Deal with 'FindObject<T>' being inside a namespace in the UE4SS backend.
             // Add a setting to control this, and/or move export it outside the namespace in UE4SS.
-            write_line(std::format(STR("auto TheFunction = {}UObjectGlobals::FindObject<{}UFunction>(nullptr, L##FunctionPath); \\"),
+            write_line(fmt::format(STR("auto TheFunction = {}UObjectGlobals::FindObject<{}UFunction>(nullptr, L##FunctionPath); \\"),
                                    get_implementation_namespace_name(),
                                    get_implementation_namespace_name()));
             write_line(STR("UE_BEGIN_FUNCTION_BODY_INTERNAL(FunctionPath, ParmsSize)"));
@@ -539,7 +539,7 @@ namespace RC::UEGenerator
             write_line(STR("#define UE_BEGIN_NATIVE_FUNCTION_BODY(FunctionPath, ParmsSize) \\"));
             // Deal with 'FindObject<T>' being inside a namespace in the UE4SS backend.
             // Add a setting to control this, and/or move export it outside the namespace in UE4SS.
-            write_line(std::format(STR("static auto TheFunction = {}UObjectGlobals::FindObject<{}UFunction>(nullptr, L##FunctionPath); \\"),
+            write_line(fmt::format(STR("static auto TheFunction = {}UObjectGlobals::FindObject<{}UFunction>(nullptr, L##FunctionPath); \\"),
                                    get_implementation_namespace_name(),
                                    get_implementation_namespace_name()));
             write_line(STR("UE_BEGIN_FUNCTION_BODY_INTERNAL(FunctionPath, ParmsSize)"));
@@ -551,7 +551,7 @@ namespace RC::UEGenerator
             write_line(STR("#define UE_SET_STATIC_SELF(ObjectPath) \\"));
             // Deal with 'FindObject<T>' being inside a namespace in the UE4SS backend.
             // Add a setting to control this, and/or move export it outside the namespace in UE4SS.
-            write_line(std::format(STR("static auto StaticSelf = {}UObjectGlobals::FindObject<{}UObject>(nullptr, L##ObjectPath);"),
+            write_line(fmt::format(STR("static auto StaticSelf = {}UObjectGlobals::FindObject<{}UObject>(nullptr, L##ObjectPath);"),
                                    get_implementation_namespace_name(),
                                    get_implementation_namespace_name()));
             write_line();
@@ -609,7 +609,7 @@ namespace RC::UEGenerator
         auto generate_ue_return_string_custom_macro() -> void
         {
             write_line(STR("#define UE_RETURN_STRING_CUSTOM(PropertyValueOffset) \\"));
-            write_line(std::format(STR("return std::bit_cast<{}FString*>(&ParamData[PropertyValueOffset])->GetCharArray(); \\"),
+            write_line(fmt::format(STR("return std::bit_cast<{}FString*>(&ParamData[PropertyValueOffset])->GetCharArray(); \\"),
                                    get_implementation_namespace_name()));
             write_line();
         }
@@ -682,7 +682,7 @@ namespace RC::UEGenerator
             get_dependency(STR("int16"));
             get_dependency(STR("int32"));
             get_dependency(STR("int64"));
-            get_dependency(STR("TCHAR"));
+            get_dependency(STR("Unreal::TCHAR"));
             get_dependency(STR("SIZE_T"));
             get_dependency(STR("bool32"));
             get_dependency(STR("bool64"));
@@ -692,13 +692,13 @@ namespace RC::UEGenerator
 
             if (all_files_are_identical && !all_includes.empty())
             {
-                write_prologue_line(std::format(STR("#include <{}>"), all_includes.front()));
+                write_prologue_line(fmt::format(STR("#include <{}>"), all_includes.front()));
             }
             else
             {
                 for (const auto& include : all_includes)
                 {
-                    write_prologue_line(std::format(STR("#include <{}>"), include));
+                    write_prologue_line(fmt::format(STR("#include <{}>"), include));
                 }
             }
         }
@@ -715,10 +715,10 @@ namespace RC::UEGenerator
             write_prologue_line(STR("#include <unordered_map>"));
             write_prologue_line(STR("#include <malloc.h>"));
             // These should probably be changed to either use the ini file for the file name, or they should always use the exact same file name as in UE.
-            write_prologue_line(std::format(STR("#include <{}UObjectGlobals.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
-            write_prologue_line(std::format(STR("#include <{}NameTypes.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
-            write_prologue_line(std::format(STR("#include <{}CoreUObject/UObject/Class.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
-            write_prologue_line(std::format(STR("#include <{}CoreUObject/UObject/UnrealType.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
+            write_prologue_line(fmt::format(STR("#include <{}UObjectGlobals.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
+            write_prologue_line(fmt::format(STR("#include <{}NameTypes.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
+            write_prologue_line(fmt::format(STR("#include <{}CoreUObject/UObject/Class.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
+            write_prologue_line(fmt::format(STR("#include <{}CoreUObject/UObject/UnrealType.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
             generate_includes_for_platform_generic_types();
             write_prologue_line();
             start_scope(); // Namespace
@@ -783,7 +783,7 @@ namespace RC::UEGenerator
             }
             for (const auto& forward_declaration : file->forward_declarations())
             {
-                write_line_internal(file->prologue(), file->prologue_scope_level(), std::format(STR("{}"), forward_declaration));
+                write_line_internal(file->prologue(), file->prologue_scope_level(), fmt::format(STR("{}"), forward_declaration));
             }
             if (!file->forward_declarations().empty())
             {
@@ -816,7 +816,7 @@ namespace RC::UEGenerator
             }
             if (!file->namespace_suffix().empty())
             {
-                namespace_to_use.append(std::format(STR("::{}"), file->namespace_suffix()));
+                namespace_to_use.append(fmt::format(STR("::{}"), file->namespace_suffix()));
             }
             namespace_to_use.append(STR("::"));
             return namespace_to_use;
@@ -934,10 +934,10 @@ namespace RC::UEGenerator
 
             for (const auto& [type_name, info] : s_opaque_placeholders)
             {
-                write_line(std::format(STR("struct alignas(0x{:X}) {}"), info.alignment, type_name));
+                write_line(fmt::format(STR("struct alignas(0x{:X}) {}"), info.alignment, type_name));
                 write_line(STR("{"));
                 start_scope();
-                write_line(std::format(STR("uint8 Pad[0x{:X}]{{}};"), info.size));
+                write_line(fmt::format(STR("uint8 Pad[0x{:X}]{{}};"), info.size));
                 write_line();
                 write_line(STR("template <typename T> T& GetTyped() { return *reinterpret_cast<T*>(this); }"));
                 write_line(STR("template <typename T> const T& GetTyped() const { return *reinterpret_cast<const T*>(this); }"));
@@ -963,7 +963,7 @@ namespace RC::UEGenerator
                     continue;
                 }
                 auto as_ustruct = static_cast<UStruct*>(file->related_uobject());
-                StringType namespace_to_use = std::format(STR("{}"), get_namespace(as_ustruct, as_ustruct->IsA<UScriptStruct>(), file.get()));
+                StringType namespace_to_use = fmt::format(STR("{}"), get_namespace(as_ustruct, as_ustruct->IsA<UScriptStruct>(), file.get()));
                 StringType struct_name = namespace_to_use + file->runtime_sdk_test_data().struct_name;
                 if (file->runtime_sdk_test_data().struct_name.empty())
                 {
@@ -971,11 +971,11 @@ namespace RC::UEGenerator
                 }
 
                 auto& layout = get_struct_layout(as_ustruct);
-                write_line(std::format(STR("static_assert(alignof({}) == 0x{:X}, \"Wrong alignment on {}\");"),
+                write_line(fmt::format(STR("static_assert(alignof({}) == 0x{:X}, \"Wrong alignment on {}\");"),
                                        struct_name,
                                        layout.alignment,
                                        struct_name));
-                write_line(std::format(STR("static_assert(sizeof({}) == 0x{:X}, \"Wrong size on {}\");"),
+                write_line(fmt::format(STR("static_assert(sizeof({}) == 0x{:X}, \"Wrong size on {}\");"),
                                        struct_name,
                                        std::max(align_up(layout.unaligned_size, layout.alignment), 1),
                                        struct_name));
@@ -990,7 +990,7 @@ namespace RC::UEGenerator
                             continue;
                         }
                     }
-                    write_line(std::format(STR("static_assert(offsetof({}, {}) == 0x{:X}, \"Wrong offset on {}::{}\");"),
+                    write_line(fmt::format(STR("static_assert(offsetof({}, {}) == 0x{:X}, \"Wrong offset on {}::{}\");"),
                                            struct_name,
                                            property_data.property_name,
                                            property_data.property->GetOffset_Internal(),
@@ -1017,7 +1017,7 @@ namespace RC::UEGenerator
                     continue;
                 }
                 auto as_ustruct = static_cast<UStruct*>(file->related_uobject());
-                StringType namespace_to_use = std::format(STR("{}"), get_namespace(as_ustruct, as_ustruct->IsA<UScriptStruct>(), file.get()));
+                StringType namespace_to_use = fmt::format(STR("{}"), get_namespace(as_ustruct, as_ustruct->IsA<UScriptStruct>(), file.get()));
                 StringType struct_name = namespace_to_use + file->runtime_sdk_test_data().struct_name;
                 for (const auto& property_data : file->runtime_sdk_test_data().properties)
                 {
@@ -1028,13 +1028,13 @@ namespace RC::UEGenerator
                             continue;
                         }
                     }
-                    write_line(std::format(STR("if (offsetof({}, {}) != 0x{:X})"),
+                    write_line(fmt::format(STR("if (offsetof({}, {}) != 0x{:X})"),
                                            struct_name,
                                            property_data.property_name,
                                            property_data.property->GetOffset_Internal()));
                     write_line(STR("{"));
                     start_scope();
-                    write_line(std::format(STR("Output::send<LogLevel::Error>(STR(\"Class '{}' not memory accurate because of property '{}', 0x{{:X}} != "
+                    write_line(fmt::format(STR("Output::send<LogLevel::Error>(STR(\"Class '{}' not memory accurate because of property '{}', 0x{{:X}} != "
                                                "0x{:X}\\n\"), offsetof({}, {}));"),
                                            struct_name,
                                            property_data.property_name,
@@ -1206,7 +1206,7 @@ namespace RC::UEGenerator
                 static const std::filesystem::path unreflected_file_dependency = get_unreflected_file_dependency(STR("TSubclassOf"));
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(std::bit_cast<FClassProperty*>(property)->GetMetaClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(std::bit_cast<FClassProperty*>(property)->GetMetaClass(), false)));
             }
             else if (auto as_soft_class_property = CastField<FSoftClassProperty>(property); as_soft_class_property)
             {
@@ -1214,7 +1214,7 @@ namespace RC::UEGenerator
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 generate_dependency_based_on_banned_deps(as_soft_class_property->GetMetaClass());
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_soft_class_property->GetMetaClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_soft_class_property->GetMetaClass(), false)));
             }
             else if (auto as_lazy_object_property = CastField<FLazyObjectProperty>(property); as_lazy_object_property)
             {
@@ -1222,7 +1222,7 @@ namespace RC::UEGenerator
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 generate_dependency_based_on_banned_deps(as_lazy_object_property->GetPropertyClass());
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_lazy_object_property->GetPropertyClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_lazy_object_property->GetPropertyClass(), false)));
             }
             else if (auto as_soft_object_property = CastField<FSoftObjectProperty>(property); as_soft_object_property)
             {
@@ -1230,26 +1230,26 @@ namespace RC::UEGenerator
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 generate_dependency_based_on_banned_deps(as_soft_object_property->GetPropertyClass());
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_soft_object_property->GetPropertyClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_soft_object_property->GetPropertyClass(), false)));
             }
             else if (auto as_weak_object_ptr_property = CastField<FWeakObjectProperty>(property); as_weak_object_ptr_property)
             {
                 static const std::filesystem::path unreflected_file_dependency = get_unreflected_file_dependency(STR("TWeakObjectPtr"));
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_weak_object_ptr_property->GetPropertyClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_weak_object_ptr_property->GetPropertyClass(), false)));
             }
             else if (auto as_object_ptr_property = CastField<FObjectPtrProperty>(property); as_object_ptr_property)
             {
                 static const std::filesystem::path unreflected_file_dependency = get_unreflected_file_dependency(STR("TObjectPtr"));
                 add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_object_ptr_property->GetPropertyClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_object_ptr_property->GetPropertyClass(), false)));
             }
             else if (auto as_object_property_base = CastField<FObjectPropertyBase>(property); as_object_property_base)
             {
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_object_property_base->GetPropertyClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_object_property_base->GetPropertyClass(), false)));
             }
             else if (auto as_struct_property = CastField<FStructProperty>(property); as_struct_property)
             {
@@ -1316,7 +1316,7 @@ namespace RC::UEGenerator
                     add_file_dependency(unreflected_file_dependency, IsFullPath::Yes);
                 }
                 current_file().forward_declarations().emplace_back(
-                        std::format(STR("class {};"), get_native_class_or_struct_name(as_interface_property->GetInterfaceClass(), false)));
+                        fmt::format(STR("class {};"), get_native_class_or_struct_name(as_interface_property->GetInterfaceClass(), false)));
             }
             else if (property->IsA<FNameProperty>())
             {
@@ -1347,11 +1347,11 @@ namespace RC::UEGenerator
             if (auto super_struct = as_struct->GetSuperStruct(); super_struct)
             {
                 super_name =
-                        std::format(STR("{}{}"), get_namespace(super_struct, is_script_struct), get_native_class_or_struct_name(super_struct, is_script_struct));
+                        fmt::format(STR("{}{}"), get_namespace(super_struct, is_script_struct), get_native_class_or_struct_name(super_struct, is_script_struct));
             }
             else
             {
-                super_name = std::format(STR("{}UObject"), get_namespace(as_struct, is_script_struct));
+                super_name = fmt::format(STR("{}UObject"), get_namespace(as_struct, is_script_struct));
             }
             return super_name;
         }
@@ -1364,7 +1364,7 @@ namespace RC::UEGenerator
             }
             else
             {
-                return std::format(STR("{}/"), m_backend->IncludePrefix);
+                return fmt::format(STR("{}/"), m_backend->IncludePrefix);
             }
         }
 
@@ -1399,7 +1399,7 @@ namespace RC::UEGenerator
             }
             else if (!m_backend->UnrealImplementationNamespace.empty())
             {
-                s_calculated_statement = std::format(STR("using namespace {};"), m_backend->UnrealImplementationNamespace);
+                s_calculated_statement = fmt::format(STR("using namespace {};"), m_backend->UnrealImplementationNamespace);
                 write_line(s_calculated_statement);
             }
         }
@@ -1410,9 +1410,9 @@ namespace RC::UEGenerator
             {
                 write_line_internal(file->prologue(),
                                     file->prologue_scope_level(),
-                                    std::format(STR("namespace {}{}"),
+                                    fmt::format(STR("namespace {}{}"),
                                                 m_backend->SDKNamespace,
-                                                file->namespace_suffix().empty() ? STR("") : std::format(STR("::{}"), file->namespace_suffix())));
+                                                file->namespace_suffix().empty() ? STR("") : fmt::format(STR("::{}"), file->namespace_suffix())));
                 write_line_internal(file->prologue(), file->prologue_scope_level(), STR("{"));
             }
         }
@@ -1427,13 +1427,13 @@ namespace RC::UEGenerator
 
         auto generate_regular_enum_definition(UEnum* uenum) -> void
         {
-            write_line(std::format(STR("enum {}"), get_native_enum_name(uenum, false)));
+            write_line(fmt::format(STR("enum {}"), get_native_enum_name(uenum, false)));
             write_line(STR("{"));
             start_scope();
             generate_enum_value_definitions(
                     uenum,
                     [&](const auto& value) {
-                        write_line(std::format(STR("{}"), value));
+                        write_line(fmt::format(STR("{}"), value));
                     },
                     ShouldUseMacros::No,
                     UseFriendlyEnumNames::Yes,
@@ -1444,7 +1444,7 @@ namespace RC::UEGenerator
 
         auto generate_namespaced_enum_definition(UEnum* uenum) -> void
         {
-            write_line(std::format(STR("namespace {}"), get_native_enum_name(uenum, false)));
+            write_line(fmt::format(STR("namespace {}"), get_native_enum_name(uenum, false)));
             write_line(STR("{"));
             start_scope();
             write_line(STR("enum Type"));
@@ -1453,7 +1453,7 @@ namespace RC::UEGenerator
             generate_enum_value_definitions(
                     uenum,
                     [&](const auto& value) {
-                        write_line(std::format(STR("{}"), value));
+                        write_line(fmt::format(STR("{}"), value));
                     },
                     ShouldUseMacros::No,
                     UseFriendlyEnumNames::Yes,
@@ -1489,28 +1489,28 @@ namespace RC::UEGenerator
                 {
                     if (enum_is_greater_than_signed_64_bit_integer)
                     {
-                        write_line(std::format(STR("enum class {} : uint64_t"), get_native_enum_name(uenum, false)));
+                        write_line(fmt::format(STR("enum class {} : uint64_t"), get_native_enum_name(uenum, false)));
                     }
                     else
                     {
-                        write_line(std::format(STR("enum class {} : int64_t"), get_native_enum_name(uenum, false)));
+                        write_line(fmt::format(STR("enum class {} : int64_t"), get_native_enum_name(uenum, false)));
                     }
                 }
                 else
                 {
-                    write_line(std::format(STR("enum class {}"), get_native_enum_name(uenum, false)));
+                    write_line(fmt::format(STR("enum class {}"), get_native_enum_name(uenum, false)));
                 }
             }
             else
             {
-                write_line(std::format(STR("enum class {} : {}"), get_native_enum_name(uenum, false), underlying_type->second));
+                write_line(fmt::format(STR("enum class {} : {}"), get_native_enum_name(uenum, false), underlying_type->second));
             }
             write_line(STR("{"));
             start_scope();
             generate_enum_value_definitions(
                     uenum,
                     [&](const StringType& value) {
-                        write_line(std::format(STR("{}"), value));
+                        write_line(fmt::format(STR("{}"), value));
                     },
                     ShouldUseMacros::No,
                     UseFriendlyEnumNames::Yes);
@@ -1560,11 +1560,11 @@ namespace RC::UEGenerator
             {
                 if (is_full_path == IsFullPath::Yes)
                 {
-                    write_prologue_line(std::format(STR("#include <{}>"), to_generic_string(file_path.c_str())));
+                    write_prologue_line(fmt::format(STR("#include <{}>"), to_generic_string(file_path.c_str())));
                 }
                 else
                 {
-                    write_prologue_line(std::format(STR("#include <UE4SS_SDK/{}.{}>"), to_generic_string(file_path.c_str()), m_backend->HeaderFileExtension));
+                    write_prologue_line(fmt::format(STR("#include <UE4SS_SDK/{}.{}>"), to_generic_string(file_path.c_str()), m_backend->HeaderFileExtension));
                 }
             }
         }
@@ -1594,7 +1594,7 @@ namespace RC::UEGenerator
             {
                 alignment = 1;
             }
-            auto base_name = std::format(STR("F{}_Opaque"), property->GetClass().GetName());
+            auto base_name = fmt::format(STR("F{}_Opaque"), property->GetClass().GetName());
 
             auto it = s_opaque_placeholders.find(base_name);
             if (it == s_opaque_placeholders.end())
@@ -1609,7 +1609,7 @@ namespace RC::UEGenerator
 
             // Same property class, different layout: give this one its own type rather than silently
             // emitting whichever was seen first.
-            auto unique_name = std::format(STR("{}_{:X}_{:X}"), base_name, element_size, alignment);
+            auto unique_name = fmt::format(STR("{}_{:X}_{:X}"), base_name, element_size, alignment);
             s_opaque_placeholders.insert_or_assign(unique_name, OpaquePlaceholderInfo{element_size, alignment});
             return unique_name;
         }
@@ -1935,7 +1935,7 @@ namespace RC::UEGenerator
                     }
                     else if (std::iswdigit(generic_type->GetName()[0]))
                     {
-                        name = std::format(STR("AutoNamedProp_{}"), generic_type->GetName());
+                        name = fmt::format(STR("AutoNamedProp_{}"), generic_type->GetName());
                     }
                     else
                     {
@@ -1958,7 +1958,7 @@ namespace RC::UEGenerator
                     ++it->second;
                     if (!was_emplaced && it->second > 0)
                     {
-                        name.append(std::format(STR("_{}"), it->second));
+                        name.append(fmt::format(STR("_{}"), it->second));
                     }
                 }
             }
@@ -2008,7 +2008,7 @@ namespace RC::UEGenerator
                         auto [inner_delegate_type, is_inner_delegate] = get_delegate_type_if_property_is_delegate(as_array_property->GetInner());
                         if (is_inner_delegate)
                         {
-                            name = std::format(STR("TArray<{}>"), inner_delegate_type);
+                            name = fmt::format(STR("TArray<{}>"), inner_delegate_type);
                         }
                         else
                         {
@@ -2044,7 +2044,7 @@ namespace RC::UEGenerator
                         auto [inner_delegate_type, is_inner_delegate] = get_delegate_type_if_property_is_delegate(as_set_property->GetElementProp());
                         if (is_inner_delegate)
                         {
-                            name = std::format(STR("TSet<{}>"), inner_delegate_type);
+                            name = fmt::format(STR("TSet<{}>"), inner_delegate_type);
                         }
                         else
                         {
@@ -2109,7 +2109,7 @@ namespace RC::UEGenerator
 
                 generate_dependency_requirements_for_property(param, ufunction);
 
-                write(std::format(STR("{} {}"), get_property_type_name(param, ufunction, true), get_sanitized_object_or_property_name(param)));
+                write(fmt::format(STR("{} {}"), get_property_type_name(param, ufunction, true), get_sanitized_object_or_property_name(param)));
                 if (i + 1 < num_actual_params)
                 {
                     write(STR(", "));
@@ -2150,16 +2150,16 @@ namespace RC::UEGenerator
         {
             if (class_is_native)
             {
-                write_line(std::format(STR("UE_BEGIN_NATIVE_FUNCTION_BODY(\"{}\", {})"), get_typeless_object_name(ufunction), ufunction->GetParmsSize()));
+                write_line(fmt::format(STR("UE_BEGIN_NATIVE_FUNCTION_BODY(\"{}\", {})"), get_typeless_object_name(ufunction), ufunction->GetParmsSize()));
             }
             else
             {
-                write_line(std::format(STR("UE_BEGIN_SCRIPT_FUNCTION_BODY(\"{}\", {})"), get_typeless_object_name(ufunction), ufunction->GetParmsSize()));
+                write_line(fmt::format(STR("UE_BEGIN_SCRIPT_FUNCTION_BODY(\"{}\", {})"), get_typeless_object_name(ufunction), ufunction->GetParmsSize()));
             }
 
             if (class_contains_only_static_functions || ufunction->HasAnyFunctionFlags(FUNC_Static))
             {
-                write_line(std::format(STR("UE_SET_STATIC_SELF(\"{}\")"), get_typeless_object_name(uclass->GetClassDefaultObject())));
+                write_line(fmt::format(STR("UE_SET_STATIC_SELF(\"{}\")"), get_typeless_object_name(uclass->GetClassDefaultObject())));
             }
         }
 
@@ -2181,13 +2181,13 @@ namespace RC::UEGenerator
                     auto the_struct = as_struct_property->GetStruct();
                     if (the_struct->GetNamePrivate() == vector_name)
                     {
-                        write_line(std::format(STR("UE_COPY_VECTOR({}, 0x{:X})"), get_sanitized_object_or_property_name(param), param->GetOffset_Internal()));
+                        write_line(fmt::format(STR("UE_COPY_VECTOR({}, 0x{:X})"), get_sanitized_object_or_property_name(param), param->GetOffset_Internal()));
                     }
                     else
                     {
                         for (const auto& inner_param : TFieldRange<FProperty>(the_struct, EFieldIterationFlags::IncludeDeprecated))
                         {
-                            write_line(std::format(STR("UE_COPY_STRUCT_INNER_PROPERTY_CUSTOM({}, {}.{}, 0x{:X}, 0x{:X})"),
+                            write_line(fmt::format(STR("UE_COPY_STRUCT_INNER_PROPERTY_CUSTOM({}, {}.{}, 0x{:X}, 0x{:X})"),
                                                    get_property_type_name(inner_param, the_struct, false),
                                                    get_sanitized_object_or_property_name(param),
                                                    get_sanitized_object_or_property_name(inner_param),
@@ -2198,7 +2198,7 @@ namespace RC::UEGenerator
                 }
                 else
                 {
-                    write_line(std::format(STR("UE_COPY_PROPERTY_CUSTOM({}, {}, 0x{:X})"),
+                    write_line(fmt::format(STR("UE_COPY_PROPERTY_CUSTOM({}, {}, 0x{:X})"),
                                            get_sanitized_object_or_property_name(param),
                                            get_property_type_name(param, ufunction, false),
                                            param->GetOffset_Internal()));
@@ -2223,7 +2223,7 @@ namespace RC::UEGenerator
             StringType type_name{};
             if (auto as_map_property = CastField<FMapProperty>(property); as_map_property)
             {
-                type_name = std::format(STR("UE_WITH_OUTER(TMap, {}, {})"),
+                type_name = fmt::format(STR("UE_WITH_OUTER(TMap, {}, {})"),
                                         get_property_type_name(as_map_property->GetKeyProp(), class_context, false),
                                         get_property_type_name(as_map_property->GetValueProp(), class_context, false));
                 return type_name;
@@ -2243,7 +2243,7 @@ namespace RC::UEGenerator
                     continue;
                 }
 
-                write_line(std::format(STR("UE_COPY_OUT_PROPERTY_CUSTOM({}, {}, 0x{:X})"),
+                write_line(fmt::format(STR("UE_COPY_OUT_PROPERTY_CUSTOM({}, {}, 0x{:X})"),
                                        get_sanitized_object_or_property_name(param),
                                        get_outered_type_name(param, ufunction),
                                        param->GetOffset_Internal()));
@@ -2257,7 +2257,7 @@ namespace RC::UEGenerator
             {
                 return;
             }
-            write_line(std::format(STR("UE_RETURN_PROPERTY_CUSTOM({}, 0x{:X})"),
+            write_line(fmt::format(STR("UE_RETURN_PROPERTY_CUSTOM({}, 0x{:X})"),
                                    get_outered_type_name(return_property, ufunction),
                                    return_property->GetOffset_Internal()));
         }
@@ -2276,7 +2276,7 @@ namespace RC::UEGenerator
         {
             auto return_property = ufunction->GetReturnProperty();
             generate_dependency_requirements_for_property(return_property, ufunction);
-            write(std::format(STR("{}{} {}("),
+            write(fmt::format(STR("{}{} {}("),
                               get_member_type(ufunction),
                               get_property_type_name(return_property, ufunction, false),
                               get_sanitized_object_or_property_name(ufunction)),
@@ -2309,7 +2309,7 @@ namespace RC::UEGenerator
             write_line(STR("static constexpr size_t StaticSize()"));
             write_line(STR("{"));
             start_scope();
-            write_line(std::format(STR("return 0x{:X};"), ustruct->GetStructureSize()));
+            write_line(fmt::format(STR("return 0x{:X};"), ustruct->GetStructureSize()));
             end_scope();
             write_line(STR("}"));
             write_line();
@@ -2317,7 +2317,7 @@ namespace RC::UEGenerator
 
         auto generate_copy_assignment_operator(UStruct* ustruct) -> void
         {
-            write_line(std::format(STR("{}& operator=(const {}& Other)"),
+            write_line(fmt::format(STR("{}& operator=(const {}& Other)"),
                                    get_native_class_or_struct_name(ustruct, true),
                                    get_native_class_or_struct_name(ustruct, true)));
             write_line(STR("{"));
@@ -2366,7 +2366,7 @@ namespace RC::UEGenerator
             if (next_bit < start_bit)
             {
                 // An unknown number of bits of padding is needed before generating this bit.
-                write_line(std::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"),
+                write_line(fmt::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"),
                                        ++struct_context.unique_padding_number,
                                        current_bit->GetOffset_Internal(),
                                        next_bit));
@@ -2420,11 +2420,11 @@ namespace RC::UEGenerator
                 for (auto i = 1; i < current_field_mask; i *= 2)
                 {
                     write_line(
-                            std::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"), ++struct_context.unique_padding_number, bit->GetOffset_Internal(), i));
+                            fmt::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"), ++struct_context.unique_padding_number, bit->GetOffset_Internal(), i));
                 }
             }
 
-            write_line(std::format(STR("{} {} : 1{{}}; // 0x{:X} (0x{:X})"),
+            write_line(fmt::format(STR("{} {} : 1{{}}; // 0x{:X} (0x{:X})"),
                                    get_property_type_name(bit, struct_context.current_struct, false),
                                    sanitized_property_name,
                                    bit->GetOffset_Internal(),
@@ -2493,7 +2493,7 @@ namespace RC::UEGenerator
             }
 
             auto num_bytes_to_pad_by = current_property_offset - struct_context.cursor;
-            write_line(std::format(STR("uint8 padding_{}[0x{:X}]{{}}; // 0x{:X}"),
+            write_line(fmt::format(STR("uint8 padding_{}[0x{:X}]{{}}; // 0x{:X}"),
                                    ++struct_context.unique_padding_number,
                                    num_bytes_to_pad_by,
                                    struct_context.cursor));
@@ -2529,7 +2529,7 @@ namespace RC::UEGenerator
                 {
                     for (uint8_t field_mask = last_property_in_bitfield.first->GetFieldMask(); field_mask < 128; field_mask *= 2)
                     {
-                        write_line(std::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"),
+                        write_line(fmt::format(STR("uint8 padding_{} : 1{{}}; // 0x{:X} (0x{:X})"),
                                                ++struct_context.unique_padding_number,
                                                last_property->GetOffset_Internal(),
                                                field_mask * 2));
@@ -2555,9 +2555,9 @@ namespace RC::UEGenerator
                 {
                     auto placeholder_type = register_opaque_placeholder(property);
                     add_file_dependency(STR("PlaceholderTypes"));
-                    write_line(std::format(STR("// Type '{}' is not representable in this SDK; emitted as a sized placeholder."),
+                    write_line(fmt::format(STR("// Type '{}' is not representable in this SDK; emitted as a sized placeholder."),
                                            property->GetClass().GetName()));
-                    buffer.append(std::format(STR("{} {}"), placeholder_type, sanitized_property_name));
+                    buffer.append(fmt::format(STR("{} {}"), placeholder_type, sanitized_property_name));
                 }
                 else
                 {
@@ -2566,16 +2566,16 @@ namespace RC::UEGenerator
                     {
                         buffer.append(STR("alignas(16) "));
                     }
-                    buffer.append(std::format(STR("{} {}"), *type_name, sanitized_property_name));
+                    buffer.append(fmt::format(STR("{} {}"), *type_name, sanitized_property_name));
                 }
 
                 if (auto array_dim = property->GetArrayDim(); array_dim > 1)
                 {
                     buffer.append(STR("["));
-                    buffer.append(std::format(STR("{}"), array_dim));
+                    buffer.append(fmt::format(STR("{}"), array_dim));
                     buffer.append(STR("]"));
                 }
-                buffer.append(std::format(STR("{{}}; // 0x{:X}"), current_member_offset));
+                buffer.append(fmt::format(STR("{{}}; // 0x{:X}"), current_member_offset));
                 write_line(buffer);
             }
 
@@ -2600,7 +2600,7 @@ namespace RC::UEGenerator
                 return;
             }
 
-            write_line(std::format(STR("uint8 padding_{}[0x{:X}]{{}}; // 0x{:X}"),
+            write_line(fmt::format(STR("uint8 padding_{}[0x{:X}]{{}}; // 0x{:X}"),
                                    ++struct_context.unique_padding_number,
                                    num_bytes_to_pad_by,
                                    struct_context.cursor));
@@ -2616,11 +2616,11 @@ namespace RC::UEGenerator
             {
                 implementation_namespace_name = STR("::");
             }
-            write_line(std::format(STR("class RC_UE4SS_SDK_API UObject : public {}UObject"), implementation_namespace_name));
+            write_line(fmt::format(STR("class RC_UE4SS_SDK_API UObject : public {}UObject"), implementation_namespace_name));
             write_line(STR("{"));
             start_scope();
             write_line(STR("void* VTable{};"));
-            write_line(std::format(STR("{}EObjectFlags ObjectFlags{{}};"), implementation_namespace_name));
+            write_line(fmt::format(STR("{}EObjectFlags ObjectFlags{{}};"), implementation_namespace_name));
             write_line(STR("int32 InternalIndex{};"));
             write_line(STR("class UClass* ClassPrivate{};"));
             write_line(STR("FName NamePrivate{};"));
@@ -2718,7 +2718,7 @@ namespace RC::UEGenerator
             write_prologue_line(STR("#include <bit>"));
             write_prologue_line();
             write_prologue_line(STR("#include <UE4SS_SDK/Macros.hpp>"));
-            write_prologue_line(std::format(STR("#include <{}CoreUObject/UObject/Class.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
+            write_prologue_line(fmt::format(STR("#include <{}CoreUObject/UObject/Class.{}>"), get_header_prefix(), m_backend->HeaderFileExtension));
 
             start_scope(); // Namespace
 
@@ -2731,8 +2731,8 @@ namespace RC::UEGenerator
             // Members start where the compiler will actually place them given how we emit the super.
             current_struct_context.cursor = get_struct_start_offset(as_struct);
 
-            write_line(std::format(STR("// Super Size: 0x{:X}"), super_struct ? super_struct->GetStructureSize() : 0));
-            write_line(std::format(STR("// Size: 0x{:X} (unaligned: 0x{:X}, alignment: 0x{:X})"),
+            write_line(fmt::format(STR("// Super Size: 0x{:X}"), super_struct ? super_struct->GetStructureSize() : 0));
+            write_line(fmt::format(STR("// Size: 0x{:X} (unaligned: 0x{:X}, alignment: 0x{:X})"),
                                    as_struct->GetStructureSize(),
                                    struct_layout.unaligned_size,
                                    struct_layout.alignment));
@@ -2750,20 +2750,20 @@ namespace RC::UEGenerator
             StringType alignment_string{};
             if (struct_layout.use_explicit_alignment || struct_layout.has_reused_trailing_padding)
             {
-                alignment_string = std::format(STR("alignas(0x{:X}) "), struct_layout.alignment);
+                alignment_string = fmt::format(STR("alignas(0x{:X}) "), struct_layout.alignment);
             }
 
             if (is_script_struct)
             {
-                write_line(std::format(STR("struct RC_UE4SS_SDK_API {}{}{}"),
+                write_line(fmt::format(STR("struct RC_UE4SS_SDK_API {}{}{}"),
                                        alignment_string,
                                        struct_or_class_name,
-                                       super_struct ? std::format(STR(" : public {}"), get_super_class_or_script_struct_name(as_struct, is_script_struct))
+                                       super_struct ? fmt::format(STR(" : public {}"), get_super_class_or_script_struct_name(as_struct, is_script_struct))
                                                     : STR("")));
             }
             else
             {
-                write_line(std::format(STR("class RC_UE4SS_SDK_API {}{} : public {}"),
+                write_line(fmt::format(STR("class RC_UE4SS_SDK_API {}{} : public {}"),
                                        alignment_string,
                                        struct_or_class_name,
                                        get_super_class_or_script_struct_name(as_struct, is_script_struct)));
@@ -2817,7 +2817,7 @@ namespace RC::UEGenerator
                 {
                     // Unlike a member variable, a parameter has no sized stand-in that would keep the
                     // call working, so the function is omitted rather than emitted commented out.
-                    write_line(std::format(STR("// Function '{}' omitted: a parameter or return type is not representable in this SDK."),
+                    write_line(fmt::format(STR("// Function '{}' omitted: a parameter or return type is not representable in this SDK."),
                                            ufunction->GetName()));
                     continue;
                 }

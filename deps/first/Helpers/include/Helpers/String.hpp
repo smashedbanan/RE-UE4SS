@@ -1,5 +1,7 @@
 #pragma once
 
+#include <algorithm>
+
 #include <codecvt>
 #include <cwctype>
 #include <locale>
@@ -568,11 +570,16 @@ namespace RC
      * @return Wide string (UTF-16) for Windows APIs
      * @throws std::runtime_error if conversion fails
      */
-    auto inline utf8_to_wpath(const std::string& utf8_path) -> std::wstring
+    auto inline utf8_to_wpath(const std::string& utf8_path) -> StringType
     {
         // No fallbacks - if this fails, it should throw since it's a critical error
         // that indicates invalid UTF-8 input
+#ifdef _WIN32
         return to_wstring(utf8_path);
+#else
+        // StringType is UTF-16 (char16_t) here; the caller only builds a std::filesystem::path from it.
+        return ensure_str(utf8_path);
+#endif
     }
 
     auto inline to_generic_string(const auto& input) -> StringType
