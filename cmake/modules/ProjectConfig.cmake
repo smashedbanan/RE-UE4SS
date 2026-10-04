@@ -11,12 +11,20 @@ include(Utilities)  # For string manipulation functions
 set(UE4SS_PROJECTS "UE4SS" "UVTD" CACHE STRING "List of main project targets")
 set(UE4SS_TARGET_TYPES "Game" "CasePreserving" "LessEqual421" CACHE STRING "UE4-style target types")
 set(UE4SS_CONFIGURATION_TYPES "Debug" "Dev" "Shipping" "Test" CACHE STRING "UE4-style configuration types")
-set(UE4SS_PLATFORM_TYPES "Win64" CACHE STRING "Supported platform types")
+set(UE4SS_PLATFORM_TYPES "Win64" "Linux" CACHE STRING "Supported platform types")
 
 # Feature toggles
 option(MAKE_DEPENDENCIES_SHARED "Make dependencies shared" OFF)
 option(UE4SS_CONSOLE_COLORS_ENABLED "Enable console colors" OFF)
-option(UE4SS_INPUT_ENABLED "Enable the input system" ON)
+# The GUI (ImGui over D3D11/GLFW) and the input system only exist for a game window on
+# Windows; a Linux build targets dedicated servers, which have neither.
+if(WIN32)
+    set(UE4SS_WINDOW_FEATURES_DEFAULT ON)
+else()
+    set(UE4SS_WINDOW_FEATURES_DEFAULT OFF)
+endif()
+option(UE4SS_GUI_ENABLED "Enable the GUI (ImGui)" ${UE4SS_WINDOW_FEATURES_DEFAULT})
+option(UE4SS_INPUT_ENABLED "Enable the input system" ${UE4SS_WINDOW_FEATURES_DEFAULT})
 option(ENABLE_IDE_SOURCE_VISIBILITY "Enable IDE visibility for source files" ON)
 option(UE4SS_SUPPRESS_THIRD_PARTY_WARNINGS "Suppress warnings from third-party libraries" ON)
 option(UE4SS_VERSION_CHECK "Enable compiler version checking" ON)
@@ -55,6 +63,8 @@ set(UE4SS_Test_DEFINITIONS UE_BUILD_TEST STATS UE4SS_PROFILERS)
 # Platform definitions (UE4-style)
 set(UE4SS_Win64_DEFINITIONS PLATFORM_WINDOWS PLATFORM_MICROSOFT OVERRIDE_PLATFORM_HEADER_NAME=Windows UBT_COMPILED_PLATFORM=Win64)
 set(UE4SS_Win64_VARS CMAKE_SYSTEM_PROCESSOR=x86_64)
+set(UE4SS_Linux_DEFINITIONS PLATFORM_LINUX PLATFORM_UNIX OVERRIDE_PLATFORM_HEADER_NAME=Linux UBT_COMPILED_PLATFORM=Linux)
+set(UE4SS_Linux_VARS CMAKE_SYSTEM_PROCESSOR=x86_64)
 
 # Initializes the project configuration
 #

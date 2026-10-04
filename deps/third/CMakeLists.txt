@@ -17,6 +17,7 @@ FetchContent_MakeAvailable(glaze)
 # Uses suppress_third_party_warnings() from cmake/modules/ThirdPartyWarnings.cmake
 suppress_third_party_warnings(glaze)
 
+if(UE4SS_GUI_ENABLED)
 # GLFW
 add_subdirectory("GLFW")
 
@@ -48,6 +49,7 @@ FetchContent_Declare(
     GIT_PROGRESS ON
 )
 add_subdirectory("imgui")
+endif()
 
 # Zydis
 FetchContent_Declare(

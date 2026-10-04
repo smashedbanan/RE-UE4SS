@@ -53,6 +53,9 @@ message("UE4SS Version: ${UE4SS_LIB_VERSION_MAJOR}.${UE4SS_LIB_VERSION_MINOR}.${
 
 # Find source files
 file(GLOB_RECURSE UE4SS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
+if(NOT UE4SS_GUI_ENABLED)
+    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/GUI/")
+endif()
 file(GLOB_RECURSE UE4SS_HEADERS "${CMAKE_CURRENT_SOURCE_DIR}/include/**.hpp")
 
 # Create the main library
@@ -144,11 +147,17 @@ target_link_libraries(UE4SS PUBLIC
 )
 
 # Link third-party dependencies
-target_link_libraries(UE4SS PUBLIC
-    fmt ImGui PolyHook_2 
-    d3d11 glfw glad opengl32 
-    dbghelp psapi ws2_32 ntdll userenv
-)
+target_link_libraries(UE4SS PUBLIC fmt PolyHook_2)
+if(UE4SS_GUI_ENABLED)
+    target_link_libraries(UE4SS PUBLIC ImGui glfw glad)
+    target_compile_definitions(UE4SS PUBLIC HAS_GUI)
+endif()
+if(WIN32)
+    target_link_libraries(UE4SS PUBLIC dbghelp psapi ws2_32 ntdll userenv)
+    if(UE4SS_GUI_ENABLED)
+        target_link_libraries(UE4SS PUBLIC d3d11 opengl32)
+    endif()
+endif()
 
 # ---------------------------------------------------------------------------
 # Output Configuration

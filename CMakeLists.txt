@@ -7,7 +7,12 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
-enable_language(CXX ASM_MASM)
+# MASM is the Microsoft assembler: only the Windows build has .asm sources.
+if(WIN32)
+    enable_language(CXX ASM_MASM)
+else()
+    enable_language(CXX)
+endif()
 include(CheckIPOSupported)
 include(GNUInstallDirs)
 
