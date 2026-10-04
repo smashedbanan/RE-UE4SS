@@ -1,0 +1,9 @@
+# UE 5.1's UBT accepts only clang 13 (v20_clang-13.0.1), and its libc++ conflicts with newer ones,
+# so it gets an image of its own. Debian bookworm still carries clang 13 in main.
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends python3 rsync clang-13 lld-13 llvm-13 libc++-13-dev libc++abi-13-dev \
+ && rm -rf /var/lib/apt/lists/*
+# UBT 5.1 targets net6.0; the SDK 8 builds it and runs it on the newer runtime.
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1 DOTNET_ROLL_FORWARD=Major
+WORKDIR /ue

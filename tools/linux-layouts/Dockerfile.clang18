@@ -1,0 +1,12 @@
+# Runs UnrealBuildTool (C#) and clang over the Unreal source: UBT generates the UHT headers and
+# the compile database of a Linux target, clang prints the Itanium vtable of each class.
+# Each engine version demands its own clang major (UE 5.6: 18; UE 5.1 has its own image, Dockerfile.clang13), so several are installed.
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+ARG DEBIAN_FRONTEND=noninteractive
+RUN apt-get update && apt-get install -y --no-install-recommends ca-certificates curl gnupg python3 rsync \
+ && curl -fsSL https://apt.llvm.org/llvm-snapshot.gpg.key | gpg --dearmor -o /usr/share/keyrings/llvm.gpg \
+ && for v in 18 20; do echo "deb [signed-by=/usr/share/keyrings/llvm.gpg] http://apt.llvm.org/bookworm/ llvm-toolchain-bookworm-$v main" > /etc/apt/sources.list.d/llvm$v.list; done \
+ && apt-get update && apt-get install -y --no-install-recommends clang-18 lld-18 llvm-18 libc++-18-dev libc++abi-18-dev clang-20 lld-20 llvm-20 \
+ && rm -rf /var/lib/apt/lists/*
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 DOTNET_NOLOGO=1
+WORKDIR /ue
