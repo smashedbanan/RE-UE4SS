@@ -1,5 +1,10 @@
 # Unreal Engine 4/5 Scripting System
 
+> **This fork runs UE4SS in native Linux Unreal games** (dedicated servers), loaded with
+> `LD_PRELOAD`. Tested: **RuneScape: Dragonwilds** (UE 5.6.1) and **Palworld** (UE 5.1.1)
+> dedicated servers. See [docs/linux.md](docs/linux.md) for the supported games, installation and
+> what changed. Releases: `linux-*` tags.
+
 Lua scripting system platform, C++ Modding API, SDK generator, blueprint mod loader, live property editor and other dumping utilities for UE4/5 games.
 
 ## Major features
