@@ -175,7 +175,12 @@ else()
     # The unwinder too: Rust's runtime asks for -lgcc_s ahead of everything else, and the game's own
     # _Unwind_RaiseException (LLVM libunwind, exported by Dragonwilds) then raised our exceptions
     # straight into std::terminate. -u pulls libgcc_eh.a in before any object needs it.
-    target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic -Wl,--exclude-libs,ALL
+    # --exclude-libs names the runtime archives only, not ALL: the first-party libraries (Unreal, File,
+    # DynamicOutput, ...) are static archives too, and hiding them left a C++ mod nothing to bind to.
+    # The linker then copied them into the mod, a private and never-initialized UObjectGlobals that
+    # found nothing.
+    target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
+                        -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
 endif()
 
