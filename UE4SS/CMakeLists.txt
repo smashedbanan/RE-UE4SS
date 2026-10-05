@@ -178,9 +178,10 @@ else()
     # --exclude-libs names the runtime archives only, not ALL: the first-party libraries (Unreal, File,
     # DynamicOutput, ...) are static archives too, and hiding them left a C++ mod nothing to bind to.
     # The linker then copied them into the mod, a private and never-initialized UObjectGlobals that
-    # found nothing.
+    # found nothing. patternsleuth_bind is listed too: it is Rust, out of reach of the visibility flags
+    # of the top-level CMakeLists.txt, and UE4SS.dll does not export it either.
     target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
-                        -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a
+                        -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a:libpatternsleuth_bind.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
     # A C++ mod is loaded into the same game and needs the same isolation, so every target linking UE4SS
     # inherits it. Without it the mod's operator delete bound to the game's (FMallocBinned2) and freed

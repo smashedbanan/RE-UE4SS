@@ -16,6 +16,18 @@ else()
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     # Microsoft secure-CRT names (printf_s, strncpy_s, ...) over the standard library; see the header.
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform/LinuxMsvcCrtCompat.hpp>")
+    # Export what UE4SS.dll exports, the RC_*_API declarations, and hide the rest: clang ignores
+    # __declspec(dllexport) here, and libUE4SS.so is preloaded, so whatever it exports comes ahead of
+    # the game's own symbols. -fvisibility-ms-compat rather than hidden: like MSVC, it keeps the
+    # typeinfo of classes visible, and a mod's class derives from CppUserModBase, whose typeinfo is
+    # only in libUE4SS.so. Each macro is set for every branch of its header, the importing side
+    # included: a hidden declaration referenced inside the library would hide the definition too.
+    set(CMAKE_C_VISIBILITY_PRESET hidden)
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-ms-compat>")
+    foreach(api RC_UE4SS_API RC_UE_API RC_ASM_API RC_DYNOUT_API RC_FILE_API RC_HELPERS_API
+                RC_INI_PARSER_API RC_INPUT_API RC_JSON_API RC_LMS_API RC_PB_API RC_SPSS_API)
+        add_compile_definitions("${api}=__attribute__((visibility(\"default\")))")
+    endforeach()
 endif()
 include(CheckIPOSupported)
 include(GNUInstallDirs)
