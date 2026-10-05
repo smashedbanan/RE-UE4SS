@@ -11,6 +11,13 @@
     lua_*;
     luaL_*;
     luaopen_*;
+    /* LuaLibrary.hpp's extern "C" functions, which UE4SS.dll exports too: no RC:: in their names */
+    get_lua_state_by_mod_name;
+    execute_lua_in_mod;
+    set_script_variable_int32;
+    set_script_variable_default_data;
+    call_script_function;
+    is_ue4ss_initialized;
   local:
     *;
 };
