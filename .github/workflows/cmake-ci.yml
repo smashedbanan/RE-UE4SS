@@ -81,7 +81,8 @@ jobs:
           script: |
             const { ALL_MODES, REQUESTED_MODES } = process.env;
             const requestedModes = JSON.parse(REQUESTED_MODES);
-            const modeSchema = JSON.parse(ALL_MODES).map(m => ({
+            // The matrix runs on Windows runners; the Linux platform is built by the build-linux job.
+            const modeSchema = JSON.parse(ALL_MODES).filter(m => m.endsWith('__Win64')).map(m => ({
               mode: m,
               artifact: requestedModes.includes(m)
             }));
@@ -116,6 +117,32 @@ jobs:
       should-upload-artifact: false
       artifact-retention-days: 1
       use-clang: true
+
+  # Build one Linux mode with Clang 19, the oldest supported compiler (see docs/linux.md)
+  build-linux:
+    name: Clang Game__Shipping__Linux
+    # Pinned: the clang-19 package is the one of Ubuntu 24.04.
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v7
+        with:
+          submodules: recursive
+          token: ${{ secrets.UEPSEUDO_PAT }}
+
+      - name: Install Clang 19 and Ninja
+        run: sudo apt-get update && sudo apt-get install -y clang-19 ninja-build
+
+      - name: Configure CMake
+        run: |
+          cmake -B build_cmake_clang_Game__Shipping__Linux -G Ninja \
+            -DCMAKE_BUILD_TYPE=Game__Shipping__Linux \
+            -DCMAKE_C_COMPILER=clang-19 \
+            -DCMAKE_CXX_COMPILER=clang++-19
+
+      # Only UE4SS: the proxy, UVTD and the C++ mods of this repository are Windows-only.
+      - name: Build UE4SS
+        run: cmake --build build_cmake_clang_Game__Shipping__Linux --target UE4SS
 
   # Report artifacts as a pull request comment.
   # Only run for pull_request events, not workflow_dispatch
