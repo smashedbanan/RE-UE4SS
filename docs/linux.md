@@ -65,6 +65,8 @@ the mod's C++ runtime the way `libUE4SS.so` links its own (see below).
   exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them). Only those
   runtime archives are hidden, so C++ mods can bind to the UE4SS and Unreal API, and a mod linking
   the `UE4SS` target inherits the same runtime flags (the game also exports `operator new/delete`).
+  Both run one `throw` as they load: an exception crossing between a mod and UE4SS otherwise
+  reaches a copy of the unwinder that has never run, and the game aborts.
 - **patternsleuth** reads the ELF image (`image-elf`).
 - **Itanium ABI**: the FName constructor takes `this` first; `ProcessLocalScriptFunction` is the
   tail jump of `ProcessInternal` under Clang; `ULocalPlayer::Exec` comes from the primary vtable.

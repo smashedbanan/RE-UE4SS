@@ -55,7 +55,7 @@ message("UE4SS Version: ${UE4SS_LIB_VERSION_MAJOR}.${UE4SS_LIB_VERSION_MINOR}.${
 file(GLOB_RECURSE UE4SS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 # Each platform has its own entry point: DllMain on Windows, an LD_PRELOAD constructor on Linux.
 if(WIN32)
-    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_linux\\.cpp$")
+    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/(main|unwinder)_linux\\.cpp$")
 else()
     list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_ue4ss_rewritten\\.cpp$")
 endif()
@@ -188,6 +188,8 @@ else()
     # No -Bsymbolic: an inline or template static that a mod and UE4SS both define must resolve to one copy.
     target_link_options(UE4SS INTERFACE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
+    # Each of those unwinder copies must have unwound once before an exception crosses into it.
+    target_sources(UE4SS INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src/unwinder_linux.cpp")
 endif()
 
 # ---------------------------------------------------------------------------
