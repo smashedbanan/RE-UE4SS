@@ -285,7 +285,28 @@ def unique_length(image: layout.Image, code: str, minimum: int) -> int:
     return len(tokens)
 
 
+def add_alternatives(pack: dict, executable: str) -> None:
+    """Function signatures of ANOTHER game of the same version (only its .sym is needed), kept as
+    alternatives: one studio's build can differ in a function another kept stock. Measured on 5.6:
+    VEIN's StaticConstructObject_Internal does not carry over to The Bus; Dragonwilds' does."""
+    image = layout.Image(executable)
+    symbols = layout.Symbols(executable + ".sym", image.base)
+    for name, entry in function_signatures(image, symbols).items():
+        entry["min"] = unique_length(image, entry["code"], entry.get("min", 12))
+        entry["reference"] = os.path.basename(executable)
+        current = pack["signatures"].get(name)
+        alternatives = [*current] if isinstance(current, list) else [current] if current else []
+        pack["signatures"][name] = [*alternatives, entry]
+
+
 def main(argv: list[str]) -> int:
+    if argv[:1] == ["--add-alternatives"]:
+        # ue_reference_pack.py --add-alternatives <pack.json> <executable with .sym> > pack.json
+        with open(argv[1], encoding="utf-8") as f:
+            pack = json.load(f)
+        add_alternatives(pack, argv[2])
+        json.dump(pack, sys.stdout, indent=1)
+        return 0
     executable, template_path, version, label = argv
     debug = executable + ".debug"
     image = layout.Image(executable)
