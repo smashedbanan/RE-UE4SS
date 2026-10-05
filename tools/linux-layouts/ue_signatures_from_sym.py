@@ -89,6 +89,8 @@ def gnatives(image: Image, symbols: Symbols, lines: set[int]) -> set[int]:
 
 
 def main(argv: list[str]) -> int:
+    if sys.version_info < (3, 10):  # bisect's key=, in gnatives()
+        sys.exit("ue_signatures_from_sym.py needs Python 3.10 or newer")
     exe, out_dir = argv[0], argv[1]
     image = Image(exe)
     (e_type,) = struct.unpack_from("<H", image.data, 16)
