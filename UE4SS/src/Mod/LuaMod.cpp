@@ -5877,6 +5877,27 @@ Overloads:
         try
         {
             lua.open_all_libs();
+#ifndef _WIN32
+            // Windows-authored mods join paths with '\' (PartyHats: io.open(dir .. "\\config.txt")), which
+            // is a filename character here: io.open gets a copy of its path with every '\' made '/', and
+            // the original io.open (the upvalue) gets that and the remaining arguments unchanged.
+            lua_State* L = lua.get_lua_state();
+            lua_getglobal(L, "io");
+            lua_getfield(L, -1, "open");
+            lua_pushcclosure(
+                    L,
+                    [](lua_State* lua_state) -> int {
+                        luaL_gsub(lua_state, luaL_checkstring(lua_state, 1), "\\", "/");
+                        lua_replace(lua_state, 1);
+                        lua_pushvalue(lua_state, lua_upvalueindex(1));
+                        lua_insert(lua_state, 1);
+                        lua_call(lua_state, lua_gettop(lua_state) - 1, LUA_MULTRET);
+                        return lua_gettop(lua_state);
+                    },
+                    1);
+            lua_setfield(L, -2, "open");
+            lua_pop(L, 1);
+#endif
             setup_lua_require_paths(lua);
             setup_lua_global_functions(lua);
             setup_lua_classes(lua);
