@@ -12,7 +12,7 @@ hooking of natives called from script). The .sym names every function and the ex
     `mov edi, imm32; call FUObjectHashTables::FUObjectHashTables()` with which Get's inlined
     initializer constructs the singleton. Get itself was inlined away, and UE4SS takes the singleton in
     its place (FUObjectHashTables::SetupGetAddress). Every decoded instance must agree and lie in
-    .data or .bss, or the script refuses.
+    .data or .bss, or the file is refused.
 ConsoleManager is IConsoleManager::SetupSingleton(), not the Singleton variable. Nothing in UE4SS reads
 the value, and the function is what patternsleuth's ConsoleManagerSingleton returns, the resolver this
 file overrides: the function that registers the "r.DumpingMovie" cvar.
@@ -20,6 +20,9 @@ file overrides: the function that registers the "r.DumpingMovie" cvar.
 The .sym is a line table whose records carry the name of the function each line belongs to, so a
 function's entry is its lowest address. Clang aligns function entries to 16 bytes; an address that is
 not aligned, or not in code, is refused rather than written.
+
+A refused file is not written and its reason goes to stderr; every other file is written, and the
+script then exits 1.
 
 The addresses hold for one build only: run this again after every game update, like ue_vtable_layout.py.
 
@@ -29,6 +32,7 @@ Only stdlib.
 from __future__ import annotations
 
 import bisect
+import functools
 import os
 import re
 import struct
@@ -53,6 +57,10 @@ MOV_EDI = 0xBF  # mov edi, imm32
 CALL = b"\xe8"  # call rel32
 
 
+class Refused(Exception):
+    """A value failed its checks: its file is not written."""
+
+
 def data_sections(image: Image) -> list[tuple[int, int]]:
     """[start, end) of .data and .bss, where a mutable global lives."""
     d = image.data
@@ -64,18 +72,26 @@ def data_sections(image: Image) -> list[tuple[int, int]]:
             if d[names + name:d.find(b"\0", names + name)] in (b".data", b".bss")]
 
 
+def entry(name: str, lines: set[int], image: Image) -> int:
+    if not lines:
+        raise Refused(f"{name}: not in the .sym")
+    if min(lines) % 16 or not image.is_code(min(lines)):
+        raise Refused(f"{name}: lowest address {min(lines):#x} is not a function entry")
+    return min(lines)
+
+
 def one_global(what: str, decoded: set[int], sections: list[tuple[int, int]]) -> int:
     if len(decoded) != 1:
-        sys.exit(f"{what}: the expected instructions decode to {sorted(map(hex, decoded))}, not one address")
+        raise Refused(f"{what}: the expected instructions decode to {sorted(map(hex, decoded))}, not one address")
     (address,) = decoded
     if not any(start <= address < end for start, end in sections):
-        sys.exit(f"{what}: decoded {address:#x}, which is not in .data or .bss")
+        raise Refused(f"{what}: decoded {address:#x}, which is not in .data or .bss")
     return address
 
 
 def gnatives(image: Image, symbols: Symbols, lines: set[int]) -> set[int]:
     """FFrame::Step jumps to GNatives[*Code++]: mov rcx, QWORD PTR [rcx*8 + GNatives]."""
-    start = min(lines)
+    start = entry(STEP, lines, image)
     # The .sym's records are sorted by address: the function ends where the record after its last line starts.
     i = bisect.bisect_right(range(symbols.count), max(lines) - symbols.base,
                             key=lambda r: RECORD.unpack_from(symbols.data, 4 + r * RECORD.size)[0])
@@ -110,24 +126,28 @@ def main(argv: list[str]) -> int:
         sys.exit(f"{exe}: not a non-PIE executable (e_type {e_type}), so .sym addresses are not runtime addresses")
     symbols = Symbols(exe + ".sym", image.base)
     found = symbols.addresses_of(set(FUNCTIONS.values()) | {STEP, HASH_TABLES_CTOR})
-    for name, lines in found.items():
-        if not lines:
-            sys.exit(f"{name}: not in the .sym")
-        if min(lines) % 16 or not image.is_code(min(lines)):
-            sys.exit(f"{name}: lowest address {min(lines):#x} is not a function entry")
-    entries = {file: (name, min(found[name])) for file, name in FUNCTIONS.items()}
     sections = data_sections(image)
-    natives = one_global("GNatives", gnatives(image, symbols, found[STEP]), sections)
-    tables = one_global("GUObjectHashTables", hash_tables(image, min(found[HASH_TABLES_CTOR])), sections)
-    entries["GNatives"] = (f"GNatives, decoded in {STEP}", natives)
-    entries["GUObjectHashTables"] = (f"FUObjectHashTables::Get()'s Singleton, decoded at the calls to {HASH_TABLES_CTOR}",
-                                     tables)
+    # Each file's value is computed on its own, so that one refusal leaves the other files written.
+    entries = {file: (name, functools.partial(entry, name, found[name], image)) for file, name in FUNCTIONS.items()}
+    entries["GNatives"] = (f"GNatives, decoded in {STEP}",
+                           lambda: one_global("GNatives", gnatives(image, symbols, found[STEP]), sections))
+    entries["GUObjectHashTables"] = (
+        f"FUObjectHashTables::Get()'s Singleton, decoded at the calls to {HASH_TABLES_CTOR}",
+        lambda: one_global("GUObjectHashTables",
+                           hash_tables(image, entry(HASH_TABLES_CTOR, found[HASH_TABLES_CTOR], image)), sections))
     os.makedirs(out_dir, exist_ok=True)
-    for file, (what, address) in entries.items():
+    refused = False
+    for file, (what, value) in entries.items():
+        try:
+            address = value()
+        except Refused as e:
+            print(e, file=sys.stderr)
+            refused = True
+            continue
         with open(os.path.join(out_dir, file + ".lua"), "w") as f:
             f.write(f"-- {what}, from {os.path.basename(exe)}.sym by ue_signatures.py\nreturn {address:#x}\n")
         print(f"{file}.lua: {what} at {address:#x}", file=sys.stderr)
-    return 0
+    return 1 if refused else 0
 
 
 if __name__ == "__main__":
