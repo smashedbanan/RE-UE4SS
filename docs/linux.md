@@ -20,8 +20,10 @@ Tested on the real dedicated server of each game, in Docker, with a probe Lua mo
 Engine versions with Linux layouts built in: **5.1, 5.6**. Any other version falls back to the MSVC
 layouts with the destructor shift, and the hooks that read a vtable slot stay off (logged).
 
-C++ mods are tested on Dragonwilds with a probe mod: `StaticFindObject`, `FindFirstOf`, and an
-exception thrown and caught inside the mod.
+C++ mods are tested on Dragonwilds with probe mods: `StaticFindObject`, `FindFirstOf` (from
+`on_update`, once the engine object exists), log output, and exceptions thrown and caught inside a
+mod, thrown by UE4SS and caught by a mod, and thrown by a mod's `start_mod` and caught by UE4SS
+(logged as a mod that failed to load).
 
 Not tested yet: Linux game **clients** (the GUI and hotkeys are not built on Linux:
 `UE4SS_GUI_ENABLED`/`UE4SS_INPUT_ENABLED` are off), other engine versions.
