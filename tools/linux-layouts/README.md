@@ -79,9 +79,9 @@ The same build can hide engine functions from patternsleuth's AOB scans (Dragonw
 file that returns it. It also writes three optional values the scans miss, which UE4SS otherwise runs
 without: `ConsoleManager.lua` (`IConsoleManager::SetupSingleton`), `GNatives.lua` (decoded from
 `FFrame::Step`) and `GUObjectHashTables.lua` (the singleton `FUObjectHashTables::Get` returns, decoded
-from the calls that construct it). A value that fails its checks is reported and its file not written;
-the other files are, and the script exits 1. The addresses belong to that build: regenerate both files
-after every game update.
+from the calls that construct it). A value that fails its checks is reported and its file deleted, so
+that UE4SS scans for that value itself; the other files are written, and the script exits 1. The
+addresses belong to that build: regenerate both files after every game update.
 
 ```bash
 python3 ue_signatures_from_sym.py <executable> UE4SS_Signatures

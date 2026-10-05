@@ -14,7 +14,8 @@ The .sym is a line table whose records carry the name of the function each line 
 function's entry is its lowest address. Clang aligns function entries to 16 bytes; an address that is
 not aligned, or not in code, is refused rather than written.
 
-A refused file is not written and its reason goes to stderr; the others are, and the script exits 1.
+A refused file is deleted rather than written, so that UE4SS scans for that value itself, and its
+reason goes to stderr; the others are written, and the script exits 1.
 
 The addresses hold for one build only: run this again after every game update, like ue_vtable_layout.py.
 
@@ -26,6 +27,7 @@ from __future__ import annotations
 import bisect
 import functools
 import os
+import pathlib
 import re
 import struct
 import sys
@@ -135,6 +137,8 @@ def main(argv: list[str]) -> int:
         except Refused as e:
             print(e, file=sys.stderr)
             refused = True
+            # A file left by an earlier run would turn off UE4SS's own scan for this value.
+            pathlib.Path(out_dir, file + ".lua").unlink(missing_ok=True)
             continue
         with open(os.path.join(out_dir, file + ".lua"), "w") as f:
             f.write(f"-- {what}, from {os.path.basename(exe)}.sym by ue_signatures_from_sym.py\nreturn {address:#x}\n")
