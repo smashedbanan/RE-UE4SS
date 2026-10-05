@@ -109,7 +109,7 @@ Currently supported options for these are:
 
 * `Platform`
   * `Win64` - 64-bit windows
-  * `Linux` - x86_64 linux, highly experimental (CMake only)
+  * `Linux` - x86_64 linux (CMake only)
 
 ### Basic Build Commands
 
