@@ -76,12 +76,10 @@ python3 ue_vtable_layout.py <executable> VTableLayout_5_06_Template.ini > VTable
 The same build can hide engine functions from patternsleuth's AOB scans (Dragonwilds:
 `FName::ToString`, `FName::FName`, `StaticConstructObject_Internal`), and UE4SS then never starts.
 `ue_signatures_from_sym.py` takes each one's entry from the `.sym` and writes a `UE4SS_Signatures/`
-file that returns it. It also writes three optional values the scans miss, which UE4SS otherwise runs
-without: `ConsoleManager.lua` (`IConsoleManager::SetupSingleton`), `GNatives.lua` (decoded from
-`FFrame::Step`) and `GUObjectHashTables.lua` (the singleton `FUObjectHashTables::Get` returns, decoded
-from the calls that construct it). A value that fails its checks is reported and its file deleted, so
-that UE4SS scans for that value itself; the other files are written, and the script exits 1. The
-addresses belong to that build: regenerate both files after every game update.
+file that returns it. It also writes `GNatives.lua` (decoded from `FFrame::Step`), an optional value
+the scans miss, which UE4SS otherwise runs without. A value that fails its checks is reported and its
+file deleted, so that UE4SS scans for that value itself; the other files are written, and the script
+exits 1. The addresses belong to that build: regenerate both files after every game update.
 
 ```bash
 python3 ue_signatures_from_sym.py <executable> UE4SS_Signatures
