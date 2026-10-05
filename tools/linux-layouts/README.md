@@ -73,6 +73,20 @@ from its folder, and it wins over the generated bodies.
 python3 ue_vtable_layout.py <executable> VTableLayout_5_06_Template.ini > VTableLayout.ini
 ```
 
+The same build can hide engine functions from patternsleuth's AOB scans (Dragonwilds:
+`FName::ToString`, `FName::FName`, `StaticConstructObject_Internal`), and UE4SS then never starts.
+`ue_signatures.py` takes each one's entry from the `.sym` and writes a `UE4SS_Signatures/` file that
+returns it. It also writes three optional values the scans miss, which UE4SS otherwise runs without:
+`ConsoleManager.lua` (`IConsoleManager::SetupSingleton`), `GNatives.lua` (decoded from
+`FFrame::Step`) and `GUObjectHashTables.lua` (the singleton `FUObjectHashTables::Get` returns, decoded
+from the calls that construct it). A value that fails its checks is reported and its file not written;
+the other files are, and the script exits 1. The addresses belong to that build: regenerate both files
+after every game update.
+
+```bash
+python3 ue_signatures.py <executable> UE4SS_Signatures
+```
+
 ## Validated
 
 - UE 5.6.1 source vs. Dragonwilds' measured vtables: every `UObject`, `UEngine`,
