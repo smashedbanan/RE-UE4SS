@@ -1,16 +1,18 @@
 """Writes the UE4SS_Signatures/*.lua of a LINUX Unreal server from its executable and its .sym.
 
 patternsleuth's AOB scans miss some engine functions in a game's own build (Dragonwilds:
-FName::ToString, FName::FName and StaticConstructObject_Internal), and UE4SS then rescans until
-SecondsToScanBeforeGivingUp and never starts. They also miss the optional GNatives. The executable is
-non-PIE, so each file returns an address:
+FName::ToString, FName::FName and StaticConstructObject_Internal), and UE4SS then never starts: it
+rescans until SecondsToScanBeforeGivingUp without the last two, and calls the first to check the
+address in FName_Constructor.lua. They also miss the optional GNatives. The executable is non-PIE, so
+each file returns an address:
   - a function's entry from the .sym: FName_ToString, FName_Constructor and StaticConstructObject;
   - GNatives, a global decoded from FFrame::Step's instructions. Every decoded instance must agree and
     lie in .data or .bss.
 
 The .sym is a line table whose records carry the name of the function each line belongs to, so a
-function's entry is its lowest address. Clang aligns function entries to 16 bytes; an address that is
-not aligned, or not in code, is refused rather than written.
+function's entry is its lowest address. Clang aligns most function entries to 16 bytes, so an address
+that is not aligned, or not in code, is refused rather than written. Some real entries are not
+aligned; refusing one only costs a scan.
 
 A refused file is deleted rather than written, so that UE4SS scans for that value itself, and its
 reason goes to stderr; the others are written, and the script exits 1.
