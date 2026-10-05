@@ -55,7 +55,7 @@ message("UE4SS Version: ${UE4SS_LIB_VERSION_MAJOR}.${UE4SS_LIB_VERSION_MINOR}.${
 file(GLOB_RECURSE UE4SS_SOURCES "${CMAKE_CURRENT_SOURCE_DIR}/src/**.cpp")
 # Each platform has its own entry point: DllMain on Windows, an LD_PRELOAD constructor on Linux.
 if(WIN32)
-    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_linux\\.cpp$")
+    list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/(main|unwinder)_linux\\.cpp$")
 else()
     list(FILTER UE4SS_SOURCES EXCLUDE REGEX "/src/main_ue4ss_rewritten\\.cpp$")
 endif()
@@ -175,8 +175,27 @@ else()
     # The unwinder too: Rust's runtime asks for -lgcc_s ahead of everything else, and the game's own
     # _Unwind_RaiseException (LLVM libunwind, exported by Dragonwilds) then raised our exceptions
     # straight into std::terminate. -u pulls libgcc_eh.a in before any object needs it.
-    target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic -Wl,--exclude-libs,ALL
+    # --exclude-libs names the runtime archives only, not ALL: the first-party libraries (Unreal, File,
+    # DynamicOutput, ...) are static archives too, and hiding them left a C++ mod nothing to bind to.
+    # The linker then copied them into the mod, a private and never-initialized UObjectGlobals that
+    # found nothing. patternsleuth_bind (Rust) is outside the visibility flags, so it is listed too.
+    target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
+                        -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a:libpatternsleuth_bind.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
+    # C++ mods get the same isolation (else a mod's operator delete binds to the game's FMalloc).
+    # No -Bsymbolic: a static that a mod and UE4SS both define must stay one copy.
+    target_link_options(UE4SS INTERFACE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
+                        -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
+    # See unwinder_linux.cpp.
+    target_sources(UE4SS INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src/unwinder_linux.cpp")
+    # A mod built outside this tree misses the top-level directory options its UE4SS headers need:
+    # the secure-CRT shim and the RC_*_API meaning.
+    target_compile_options(UE4SS INTERFACE
+        "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/platform/LinuxMsvcCrtCompat.hpp>")
+    foreach(api RC_UE4SS_API RC_UE_API RC_ASM_API RC_DYNOUT_API RC_FILE_API RC_HELPERS_API
+                RC_INI_PARSER_API RC_INPUT_API RC_JSON_API RC_LMS_API RC_PB_API RC_SPSS_API)
+        target_compile_definitions(UE4SS INTERFACE "${api}=__attribute__((visibility(\"default\")))")
+    endforeach()
 endif()
 
 # ---------------------------------------------------------------------------

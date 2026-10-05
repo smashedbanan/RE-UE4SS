@@ -16,6 +16,15 @@ else()
     set(CMAKE_POSITION_INDEPENDENT_CODE ON)
     # Microsoft secure-CRT names (printf_s, strncpy_s, ...) over the standard library; see the header.
     add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/cmake/platform/LinuxMsvcCrtCompat.hpp>")
+    # Export only what UE4SS.dll exports (RC_*_API) and hide the rest: clang ignores __declspec, and a
+    # preloaded library's exports come ahead of the game's. ms-compat keeps class typeinfo visible,
+    # which mods deriving from CppUserModBase need.
+    set(CMAKE_C_VISIBILITY_PRESET hidden)
+    add_compile_options("$<$<COMPILE_LANGUAGE:CXX>:-fvisibility-ms-compat>")
+    foreach(api RC_UE4SS_API RC_UE_API RC_ASM_API RC_DYNOUT_API RC_FILE_API RC_HELPERS_API
+                RC_INI_PARSER_API RC_INPUT_API RC_JSON_API RC_LMS_API RC_PB_API RC_SPSS_API)
+        add_compile_definitions("${api}=__attribute__((visibility(\"default\")))")
+    endforeach()
 endif()
 include(CheckIPOSupported)
 include(GNUInstallDirs)
