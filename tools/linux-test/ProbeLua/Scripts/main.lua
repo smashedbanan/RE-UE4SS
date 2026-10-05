@@ -1,6 +1,7 @@
 -- ProbeLua: one "PROBE PASS lua:<check>" / "PROBE FAIL lua:<check>" line per Lua API the Linux port
 -- has to support (tools/linux-test/run.sh). Built for a dedicated server: it needs no player.
---   at load:          StaticFindObject, ExecuteInGameThread, NotifyOnNewObject
+--   at load:          StaticFindObject, ExecuteInGameThread, NotifyOnNewObject, io.open.backslash (a path
+--                     joined with "\", as Windows-authored mods do)
 --   once L_World is up: FindFirstOf (its GameState), RegisterHook on a native function (hooked, then
 --                     called directly), RegisterHook on Blueprint functions (the event graphs and
 --                     ticks of live Blueprint classes, which run on their own)
@@ -30,6 +31,14 @@ NotifyOnNewObject("/Script/Engine.Actor", function(obj)
     report("NotifyOnNewObject", true, obj:GetFullName())
     return true
 end)
+
+do -- This Scripts directory, found the way PartyHats finds its own, then joined with "\" as it does
+    local src = (debug.getinfo(1, "S").source or ""):gsub("^@", "")
+    local path = (src:match("^(.*)[/\\][^/\\]*$") or "") .. "\\main.lua"
+    local file, err = io.open(path, "r")
+    if file then file:close() end
+    report("io.open.backslash", file ~= nil, file and path or err)
+end
 
 -- Once L_World is up -------------------------------------------------------------------------------
 local function nativeCheck(gameState)
