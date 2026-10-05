@@ -118,11 +118,11 @@ jobs:
       artifact-retention-days: 1
       use-clang: true
 
-  # Build one Linux mode with Clang 19, the oldest supported compiler (see docs/linux.md)
+  # Build one Linux mode with Clang (see docs/linux.md)
   build-linux:
     name: Clang Game__Shipping__Linux
-    # Pinned: the clang-19 package is the one of Ubuntu 24.04.
-    runs-on: ubuntu-24.04
+    # Pinned: the clang-22 package is the one of Ubuntu 26.04.
+    runs-on: ubuntu-26.04
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
@@ -130,15 +130,15 @@ jobs:
           submodules: recursive
           token: ${{ secrets.UEPSEUDO_PAT }}
 
-      - name: Install Clang 19 and Ninja
-        run: sudo apt-get update && sudo apt-get install -y clang-19 ninja-build
+      - name: Install Clang 22 and Ninja
+        run: sudo apt-get update && sudo apt-get install -y clang-22 ninja-build
 
       - name: Configure CMake
         run: |
           cmake -B build_cmake_clang_Game__Shipping__Linux -G Ninja \
             -DCMAKE_BUILD_TYPE=Game__Shipping__Linux \
-            -DCMAKE_C_COMPILER=clang-19 \
-            -DCMAKE_CXX_COMPILER=clang++-19
+            -DCMAKE_C_COMPILER=clang-22 \
+            -DCMAKE_CXX_COMPILER=clang++-22
 
       # Only UE4SS: the proxy, UVTD and the C++ mods of this repository are Windows-only.
       - name: Build UE4SS
