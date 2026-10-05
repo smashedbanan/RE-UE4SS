@@ -5,6 +5,8 @@
 #include <Mod/CppUserModBase.hpp>
 #include <Unreal/UClass.hpp>
 #include <Unreal/UObjectGlobals.hpp>
+// Included the way RuneSchema does; it pulls in ErrorObject.hpp's secure-CRT calls (strncpy_s).
+#include <UE4SSProgram.hpp>
 
 using namespace RC;
 using namespace RC::Unreal;

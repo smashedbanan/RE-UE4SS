@@ -191,6 +191,17 @@ else()
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
     # Each of those unwinder copies must have unwound once before an exception crosses into it.
     target_sources(UE4SS INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/src/unwinder_linux.cpp")
+    # A mod built outside this tree (FetchContent or add_subdirectory, as RuneSchema does) is not under
+    # the top-level CMakeLists.txt's directory options, and UE4SS's headers call the secure-CRT names
+    # (strncpy_s in ErrorObject.hpp, via UE4SSProgram.hpp): it gets the shim from here. In-tree
+    # targets get it twice, which #pragma once absorbs.
+    target_compile_options(UE4SS INTERFACE
+        "$<$<COMPILE_LANGUAGE:CXX>:SHELL:-include ${CMAKE_CURRENT_SOURCE_DIR}/../cmake/platform/LinuxMsvcCrtCompat.hpp>")
+    # The same for the RC_*_API meaning (default visibility) the top-level CMakeLists.txt defines.
+    foreach(api RC_UE4SS_API RC_UE_API RC_ASM_API RC_DYNOUT_API RC_FILE_API RC_HELPERS_API
+                RC_INI_PARSER_API RC_INPUT_API RC_JSON_API RC_LMS_API RC_PB_API RC_SPSS_API)
+        target_compile_definitions(UE4SS INTERFACE "${api}=__attribute__((visibility(\"default\")))")
+    endforeach()
 endif()
 
 # ---------------------------------------------------------------------------
