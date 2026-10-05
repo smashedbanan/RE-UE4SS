@@ -17,9 +17,12 @@ bin=/srv/rs_server/RSDragonwilds/Binaries/Linux
 game=RSDragonwildsServer-Linux-Shipping
 
 # 1. Signatures and vtable layout of this image's game build. They are absolute addresses of that
-#    build (non-PIE), so they are keyed by image id and never reused across builds.
+#    build (non-PIE), so they are keyed by image id and generator version (a hash of the two scripts
+#    and the template), never reused across builds and regenerated when a generator changes.
 id=$(podman image inspect --format '{{.Id}}' "$image")
-layouts=$dw/layouts/$id
+gen=$(cat "$repo"/tools/linux-layouts/ue_{signatures,vtable_layout}.py \
+  "$repo/assets/VTableLayoutTemplates/VTableLayout_5_06_Template.ini" | sha256sum | cut -c1-12)
+layouts=$dw/layouts/$id-$gen
 if [ ! -f "$layouts/VTableLayout.ini" ]; then
   tmp=$dw/layouts/tmp
   rm -rf "$tmp" && mkdir -p "$tmp/out"
