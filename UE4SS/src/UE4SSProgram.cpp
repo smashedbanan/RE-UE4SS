@@ -792,10 +792,18 @@ namespace RC
                     Unreal::FField::VTableLayoutMap.emplace(item, offset);
                 });
 
+                // The engine version is usually NOT known here: this ini is read before the scan that finds
+                // it (only an EngineVersionOverride sets it this early), and an unknown version answers
+                // "below 4.25" - every FProperty offset then stacked on the UObject chain instead of on
+                // FField, the FNumericProperty ones 69 slots too far, and the type system crashed calling
+                // them (4.27 on Linux). FField only exists from 4.25 on, so the ini itself says which
+                // inheritance it describes: an [FField] section means FProperty derives from FField.
+                const bool properties_are_uobjects = Unreal::Version::Major > 0 ? Unreal::Version::IsBelow(4, 25) : ffield_size == 0;
+
                 Output::send<Color::Blue>(STR("FProperty\n"));
                 uint32_t fproperty_size = retrieve_vtable_layout_from_ini(STR("FProperty"), [&](uint32_t index, File::StringType& item) {
                     uint32_t offset{};
-                    if (Unreal::Version::IsBelow(4, 25))
+                    if (properties_are_uobjects)
                     {
                         offset = calculate_virtual_function_offset(index, uobjectbase_size, uobjectbaseutility_size, uobject_size, ufield_size);
                     }
@@ -808,7 +816,7 @@ namespace RC
                 });
 
                 // If the engine version is <4.25 then the inheritance is different and we must take that into consideration.
-                if (Unreal::Version::IsBelow(4, 25))
+                if (properties_are_uobjects)
                 {
                     fproperty_size = uobjectbase_size + uobjectbaseutility_size + uobject_size + ufield_size + fproperty_size;
                 }

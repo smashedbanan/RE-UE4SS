@@ -84,3 +84,26 @@ python3 ue_vtable_layout.py <executable> VTableLayout_5_06_Template.ini > VTable
   animation Blueprints call from worker threads (KismetMathLibrary) also hold since the Lua
   RegisterHook callbacks take `LuaMod::m_thread_actions_mutex` (thousands of calls, 10 minutes,
   game thread still ticking).
+
+## From a game's DWARF (no engine source needed)
+
+A server that ships its `.debug` (Squad 44, MORDHAU, VEIN, QANGA, Citadel) carries every class
+layout of its build. `ue_layout_from_dwarf.py` reads it with `llvm-dwarfdump` (one lookup per level
+of the class hierarchy, streaming: a class used everywhere is defined once per compilation unit) and
+writes the same bodies as the two source tools:
+
+```bash
+docker run --rm -v <game>:/g:ro -v $PWD:/t ue-layout bash -c 'cd /t && python3 ue_layout_from_dwarf.py \
+    /g/<Server>.debug /repo/assets/VTableLayoutTemplates/VTableLayout_4_27_Template.ini \
+    --bodies /repo/deps/first/Unreal/generated_include/FunctionBodies 4_27 /tmp/out "the DWARF of <game>"'
+```
+
+The game is only the measuring device: if its studio changed an engine class, so does the layout.
+`--slots-json` also writes the absolute slot of every name, which the reference pack uses.
+
+## Reference packs (games without symbols)
+
+`ue_reference_pack.py <executable> <template> <version> <label>` turns one game with `.sym` and
+`.debug` into the pack of its engine version (see docs/linux.md, "Why a game needs its own files").
+Packs built so far: 4.26 (MORDHAU), 4.27 (Squad 44), 5.6 (VEIN), 5.7 (QANGA). They are the
+`LinuxReferencePacks.tar.gz` of the release; the game panel's `ue_linux_layout.py` applies them.

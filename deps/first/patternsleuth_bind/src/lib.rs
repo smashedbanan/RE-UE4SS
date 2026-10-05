@@ -2,6 +2,9 @@
 
 use std::{error::Error, sync::Arc, time::Instant};
 
+#[cfg(target_os = "linux")]
+mod linux_image;
+
 use patternsleuth::resolvers::{
     futures::join,
     impl_collector,
@@ -122,6 +125,12 @@ impl std::fmt::Display for ScanErrors {
 pub fn ps_scan_internal(ctx: &PsCtx, results: &mut PsScanResults) -> Result<(), Box<dyn Error>> {
     default!(ctx, "Reading image");
 
+    #[cfg(target_os = "linux")]
+    let exe = {
+        let (base, bytes) = linux_image::image_bytes()?;
+        patternsleuth::image::Image::read::<&str>(Some(base), bytes, None, false)?
+    };
+    #[cfg(not(target_os = "linux"))]
     let exe = patternsleuth::process::internal::read_image()?;
 
     default!(ctx, "Starting scan");

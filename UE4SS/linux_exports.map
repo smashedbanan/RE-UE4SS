@@ -1,0 +1,16 @@
+/* What libUE4SS.so exports on Linux: UE4SS's own API (C++ mods link against RC::) and Lua's C API
+   (C modules loaded by Lua mods). Everything else stays local. A preloaded library comes first in
+   every lookup of the process, so an exported instantiation of a standard template
+   (std::_Hashtable<std::u16string, ...>) would be used by any other library that has the same one -
+   the game's plugins included (Mordhau's mod.io SDK aborted in modioInit with it). */
+{
+  global:
+    extern "C++" {
+      *RC::*;
+    };
+    lua_*;
+    luaL_*;
+    luaopen_*;
+  local:
+    *;
+};

@@ -175,8 +175,12 @@ else()
     # The unwinder too: Rust's runtime asks for -lgcc_s ahead of everything else, and the game's own
     # _Unwind_RaiseException (LLVM libunwind, exported by Dragonwilds) then raised our exceptions
     # straight into std::terminate. -u pulls libgcc_eh.a in before any object needs it.
+    # Our own code's template instantiations are not in a static library, so --exclude-libs does not
+    # hide them: the version script exports only UE4SS's API (see linux_exports.map).
     target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic -Wl,--exclude-libs,ALL
-                        -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
+                        -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state
+                        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/linux_exports.map)
+    set_property(TARGET UE4SS APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/linux_exports.map)
 endif()
 
 # ---------------------------------------------------------------------------
