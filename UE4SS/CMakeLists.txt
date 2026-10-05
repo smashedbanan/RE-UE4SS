@@ -182,6 +182,12 @@ else()
     target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
                         -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
+    # A C++ mod is loaded into the same game and needs the same isolation, so every target linking UE4SS
+    # inherits it. Without it the mod's operator delete bound to the game's (FMallocBinned2) and freed
+    # memory the game never allocated: SIGSEGV in FMallocBinned2::FreeExternal on Dragonwilds.
+    # No -Bsymbolic: an inline or template static that a mod and UE4SS both define must resolve to one copy.
+    target_link_options(UE4SS INTERFACE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL
+                        -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state)
 endif()
 
 # ---------------------------------------------------------------------------
