@@ -115,7 +115,9 @@ is caught.
   exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them). A mod linking
   the `UE4SS` target inherits the same runtime flags (the game also exports `operator new/delete`),
   and both run one `throw` as they load: an exception crossing between a mod and UE4SS otherwise
-  reaches a copy of the unwinder that has never run, and the game aborts.
+  reaches a copy of the unwinder that has never run, and the game aborts. Each keeps its own
+  exception state, so after an exception crosses between them `std::uncaught_exceptions()` is off
+  in both, and `std::current_exception()` or `throw;` sees only exceptions caught on its own side.
 - **patternsleuth** reads the ELF image (`image-elf`).
 - **Itanium ABI**: the FName constructor takes `this` first; `ProcessLocalScriptFunction` is the
   tail jump of `ProcessInternal` under Clang; `ULocalPlayer::Exec` comes from the primary vtable.
