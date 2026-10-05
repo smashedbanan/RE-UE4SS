@@ -7,6 +7,9 @@
   global:
     extern "C++" {
       *RC::*;
+      /* VirtualFunctionHelper.hpp's registry, which modules share because templates are per module.
+         A mod with its own copy has an empty registry. Not in RC:: */
+      SharedObjectManager::*;
     };
     lua_*;
     luaL_*;
