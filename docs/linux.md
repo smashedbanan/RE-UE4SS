@@ -46,6 +46,7 @@ ships and put them in the same `ue4ss/` folder:
 
 ```bash
 python3 tools/linux-layouts/ue_vtable_layout.py <executable> assets/VTableLayoutTemplates/VTableLayout_5_06_Template.ini > ue4ss/VTableLayout.ini
+python3 tools/linux-layouts/ue_signatures.py <executable> ue4ss/UE4SS_Signatures
 ```
 
 ## What changed for Linux, and why
