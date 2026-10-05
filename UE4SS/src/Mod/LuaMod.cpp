@@ -5878,23 +5878,44 @@ Overloads:
         {
             lua.open_all_libs();
 #ifndef _WIN32
-            // Windows-authored mods join paths with '\': io.open calls the original with each '\' made '/'.
+            // Windows-authored mods join paths with '\'. These functions turn each '\' of their path arguments into '/', then
+            // run the original (a C function without upvalues) in this same call, so its results, errors and yields are unchanged.
+            const struct
+            {
+                const char* lib;
+                const char* name;
+                int paths; // leading arguments that are paths
+            } path_functions[]{{"io", "open", 1},
+                               {"io", "lines", 1},
+                               {"io", "input", 1},
+                               {"io", "output", 1},
+                               {"_G", "dofile", 1},
+                               {"_G", "loadfile", 1},
+                               {"os", "remove", 1},
+                               {"os", "rename", 2}};
             lua_State* L = lua.get_lua_state();
-            lua_getglobal(L, "io");
-            lua_getfield(L, -1, "open");
-            lua_pushcclosure(
-                    L,
-                    [](lua_State* lua_state) -> int {
-                        luaL_gsub(lua_state, luaL_checkstring(lua_state, 1), "\\", "/");
-                        lua_replace(lua_state, 1);
-                        lua_pushvalue(lua_state, lua_upvalueindex(1));
-                        lua_insert(lua_state, 1);
-                        lua_call(lua_state, lua_gettop(lua_state) - 1, LUA_MULTRET);
-                        return lua_gettop(lua_state);
-                    },
-                    1);
-            lua_setfield(L, -2, "open");
-            lua_pop(L, 1);
+            for (auto [lib, name, paths] : path_functions)
+            {
+                lua_getglobal(L, lib);
+                lua_getfield(L, -1, name);
+                lua_pushinteger(L, paths);
+                lua_pushcclosure(
+                        L,
+                        [](lua_State* lua_state) -> int {
+                            for (int i = 1; i <= lua_tointeger(lua_state, lua_upvalueindex(2)); ++i)
+                            {
+                                if (lua_type(lua_state, i) == LUA_TSTRING)
+                                {
+                                    luaL_gsub(lua_state, lua_tostring(lua_state, i), "\\", "/");
+                                    lua_replace(lua_state, i);
+                                }
+                            }
+                            return lua_tocfunction(lua_state, lua_upvalueindex(1))(lua_state);
+                        },
+                        2);
+                lua_setfield(L, -2, name);
+                lua_pop(L, 1);
+            }
 #endif
             setup_lua_require_paths(lua);
             setup_lua_global_functions(lua);
