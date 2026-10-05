@@ -178,18 +178,14 @@ else()
     # --exclude-libs names the runtime archives only, not ALL: the first-party libraries (Unreal, File,
     # DynamicOutput, ...) are static archives too, and hiding them left a C++ mod nothing to bind to.
     # The linker then copied them into the mod, a private and never-initialized UObjectGlobals that
-    # found nothing. patternsleuth_bind (Rust) is outside the visibility flags, so it is listed too.
-    # Template instantiations keep default visibility under the visibility flags (libstdc++ declares
-    # them so), in our own objects and archives alike: the version script exports only UE4SS's API
-    # (see linux_exports.map).
+    # found nothing. patternsleuth_bind (Rust) holds no API, so it is listed too.
+    # The version script exports only RC::, Lua's C API and LuaLibrary's functions; std::-only
+    # instantiations stay local (see linux_exports.map).
     target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
                         -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a:libpatternsleuth_bind.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state
                         -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/linux_exports.map)
     set_property(TARGET UE4SS APPEND PROPERTY LINK_DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/linux_exports.map)
-    # The map exports Lua's C API for the C modules Lua mods load, and C is hidden by default here
-    # (top-level CMakeLists.txt). Lua already marks its internals (LUAI_FUNC) hidden.
-    set_target_properties(LuaRaw PROPERTIES C_VISIBILITY_PRESET default)
     # C++ mods get the same isolation (else a mod's operator delete binds to the game's FMalloc).
     # No -Bsymbolic: a static that a mod and UE4SS both define must stay one copy.
     target_link_options(UE4SS INTERFACE -static-libstdc++ -static-libgcc -Wl,--exclude-libs,ALL

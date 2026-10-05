@@ -100,8 +100,8 @@ python3 tools/linux-layouts/ue_signatures_from_sym.py <executable> ue4ss/UE4SS_S
 
 A C++ mod is a shared object, `ue4ss/Mods/<Mod>/dlls/main.so`, exporting `start_mod` and
 `uninstall_mod`. Build it with `target_link_libraries(<mod> PUBLIC UE4SS)`, which on Linux also links
-the mod's C++ runtime the way `libUE4SS.so` links its own (see below). It gets the API it gets on
-Windows: the `RC_*_API` declarations.
+the mod's C++ runtime the way `libUE4SS.so` links its own (see below). It binds to the UE4SS and
+Unreal API that `libUE4SS.so` exports.
 
 ## What changed for Linux, and why
 
@@ -133,9 +133,7 @@ Windows: the `RC_*_API` declarations.
 - **Exports** (`UE4SS/linux_exports.map`): a preloaded library comes first in every lookup of the
   process, so its standard template instantiations were used by the game's own plugins (Mordhau's
   mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Only `RC::`, Lua's C API and
-  `LuaLibrary`'s functions are exported, and of `RC::` only what `UE4SS.dll` exports, the `RC_*_API`
-  declarations (`-fvisibility-ms-compat`; clang ignores `__declspec(dllexport)` on Linux). C++ mods
-  bind to the UE4SS and Unreal API.
+  `LuaLibrary`'s functions are exported. C++ mods bind to the UE4SS and Unreal API.
 - **Layouts from DWARF** (`tools/linux-layouts/ue_layout_from_dwarf.py`): the same bodies as the
   source tools, read from a server's `.debug` - no Unreal source or UnrealBuildTool needed.
 - **Lua mods**: a mod's `Scripts` directory is found in either case (mods ship `Scripts`, and
