@@ -68,7 +68,7 @@ RE-UE4SS supports the following environment variables:
 ## Build requirements
 
 - A computer running Windows.
-  - Linux support might happen at some point but not soon.
+  - For Linux, see [docs/linux.md](docs/linux.md).
 - A version of MSVC that supports C++23:
   - MSVC toolset version >= 14.43.0
   - MSVC version >= 19.43
