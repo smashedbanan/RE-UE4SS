@@ -15,4 +15,4 @@ podman run --rm -v "$repo:/src" -v "$out:/out" -e CARGO_HOME=/out/cargo \
       -DCMAKE_BUILD_TYPE=Game__Shipping__Linux \
       -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_LINKER_TYPE=LLD \
       -DCMAKE_INSTALL_LIBDIR=lib
-    cmake --build /out/build --target UE4SS'
+    cmake --build /out/build --target UE4SS ProbeCpp'
