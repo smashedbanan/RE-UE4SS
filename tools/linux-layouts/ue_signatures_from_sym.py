@@ -18,7 +18,7 @@ A refused file is not written and its reason goes to stderr; the others are, and
 
 The addresses hold for one build only: run this again after every game update, like ue_vtable_layout.py.
 
-Usage: ue_signatures.py <executable> <UE4SS_Signatures directory>
+Usage: ue_signatures_from_sym.py <executable> <UE4SS_Signatures directory>
 Only stdlib.
 """
 from __future__ import annotations
@@ -137,7 +137,7 @@ def main(argv: list[str]) -> int:
             refused = True
             continue
         with open(os.path.join(out_dir, file + ".lua"), "w") as f:
-            f.write(f"-- {what}, from {os.path.basename(exe)}.sym by ue_signatures.py\nreturn {address:#x}\n")
+            f.write(f"-- {what}, from {os.path.basename(exe)}.sym by ue_signatures_from_sym.py\nreturn {address:#x}\n")
         print(f"{file}.lua: {what} at {address:#x}", file=sys.stderr)
     return 1 if refused else 0
 
