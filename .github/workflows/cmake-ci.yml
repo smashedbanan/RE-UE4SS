@@ -123,12 +123,17 @@ jobs:
     name: Clang Game__Shipping__Linux
     # Pinned: the clang-22 package is the one of Ubuntu 26.04.
     runs-on: ubuntu-26.04
+    # It only builds: read access, as in cmake_build_ue4ss.yml, and no token left in .git/config for the
+    # build's own scripts (cargo, CMake) to read.
+    permissions:
+      contents: read
     steps:
       - name: Checkout repo
         uses: actions/checkout@v7
         with:
           submodules: recursive
           token: ${{ secrets.UEPSEUDO_PAT }}
+          persist-credentials: false
 
       - name: Install Clang 22 and Ninja
         run: sudo apt-get update && sudo apt-get install -y clang-22 ninja-build
