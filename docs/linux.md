@@ -137,7 +137,8 @@ is caught.
   process, so its standard template instantiations were used by the game's own plugins (Mordhau's
   mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Exported: names containing `RC::`
   (the UE4SS and Unreal API, with its typeinfo, vtables and statics), `SharedObjectManager`, Lua's
-  C API and `LuaLibrary`'s functions. Standard-library instantiations stay local.
+  C API and `LuaLibrary`'s functions. Standard-library instantiations stay local. CI links a probe
+  mod and checks that it binds to these exports, not to copies of its own (`tools/linux-mod-check`).
 - **Layouts from DWARF** (`tools/linux-layouts/ue_layout_from_dwarf.py`): the same bodies as the
   source tools, read from a server's `.debug` - no Unreal source or UnrealBuildTool needed.
 - **Lua mods**: a mod's `Scripts` directory is found in either case (mods ship `Scripts`, and
