@@ -107,7 +107,9 @@ Windows: the `RC_*_API` declarations.
 
 - **Build**: Linux platform type and Clang 19 or newer (clang 18 hides libstdc++'s `std::expected`,
   which glaze needs); GUI and input optional; Windows-only libraries behind `WIN32`; POSIX ports of
-  the file, mutex and scanner layers; `LD_PRELOAD` constructor entry.
+  the file, mutex and scanner layers; `LD_PRELOAD` constructor entry. CI builds
+  `Game__Shipping__Linux` on Ubuntu 26.04 with Clang 22 (the `build-linux` job of
+  `.github/workflows/cmake-ci.yml`).
 - **Running inside the game**: libstdc++ and the unwinder are linked in and bound locally (the game
   exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them). A mod linking
   the `UE4SS` target inherits the same runtime flags (the game also exports `operator new/delete`),
