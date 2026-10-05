@@ -33,7 +33,8 @@ native functions, `ExecuteInGameThread` and `NotifyOnNewObject`, with every defa
 Not working yet: Citadel: Forged with Fire (4.21: the probe runs, then the server crashes).
 No reference game with symbols for 4.18, 4.22, 4.25, 5.2 and 5.4, so StickyBots, Tower Unite,
 Operation: Harsh Doorstop, Modiverse, Day of Dragons and Nightingale are not supported.
-Not tested: Linux game **clients** (the GUI and hotkeys are not built on Linux), C++ mods.
+Not tested: Linux game **clients** (the GUI and hotkeys are not built on Linux:
+`UE4SS_GUI_ENABLED`/`UE4SS_INPUT_ENABLED` are off). C++ mods: Dragonwilds only (below).
 
 ### Why a game needs its own files
 
@@ -54,6 +55,22 @@ shorter than unique in the reference), `GMalloc.lua`/`ConsoleManager.lua` checke
 against the allocator's / `FConsoleManager`'s exported vtable, and `MemberVariableLayout.ini` when
 the `FUObjectArray` access histogram is shifted. The release ships the packs in
 `LinuxReferencePacks.tar.gz`.
+
+### RuneScape: Dragonwilds
+
+Jagex's 5.6.1 changes engine classes, and its build hides `FName::ToString`, the FName constructor
+and `StaticConstructObject_Internal` from patternsleuth's scans: UE4SS rescans until
+`SecondsToScanBeforeGivingUp` and never starts. The server ships its `.sym` (no `.debug`), so its
+`VTableLayout.ini` and `UE4SS_Signatures/` are generated from it (see Installing). Beyond the probe
+Lua mod, Dragonwilds is tested with:
+
+- a Lua mod released for the Windows build, run unchanged. It needed two fixes: its `Scripts`
+  directory found on a case-sensitive filesystem, and its `\`-joined paths opened by `io.open` (see
+  Lua mods below);
+- C++ probe mods: `StaticFindObject`, `FindFirstOf` (from `on_update`, once the engine object
+  exists), log output, and exceptions thrown and caught inside a mod, thrown by UE4SS and caught by
+  a mod, and thrown by a mod's `start_mod` and caught by UE4SS (logged as a mod that failed to
+  load).
 
 ## Installing
 
@@ -78,14 +95,24 @@ ships and put them in the same `ue4ss/` folder:
 
 ```bash
 python3 tools/linux-layouts/ue_vtable_layout.py <executable> assets/VTableLayoutTemplates/VTableLayout_5_06_Template.ini > ue4ss/VTableLayout.ini
+python3 tools/linux-layouts/ue_signatures.py <executable> ue4ss/UE4SS_Signatures
 ```
+
+A C++ mod is a shared object, `ue4ss/Mods/<Mod>/dlls/main.so`, exporting `start_mod` and
+`uninstall_mod`. Build it with `target_link_libraries(<mod> PUBLIC UE4SS)`, which on Linux also links
+the mod's C++ runtime the way `libUE4SS.so` links its own (see below). It gets the API it gets on
+Windows: the `RC_*_API` declarations.
 
 ## What changed for Linux, and why
 
-- **Build**: Linux platform type and Clang; GUI and input optional; Windows-only libraries behind
-  `WIN32`; POSIX ports of the file, mutex and scanner layers; `LD_PRELOAD` constructor entry.
+- **Build**: Linux platform type and Clang 19 or newer (clang 18 hides libstdc++'s `std::expected`,
+  which glaze needs); GUI and input optional; Windows-only libraries behind `WIN32`; POSIX ports of
+  the file, mutex and scanner layers; `LD_PRELOAD` constructor entry.
 - **Running inside the game**: libstdc++ and the unwinder are linked in and bound locally (the game
-  exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them).
+  exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them). A mod linking
+  the `UE4SS` target inherits the same runtime flags (the game also exports `operator new/delete`),
+  and both run one `throw` as they load: an exception crossing between a mod and UE4SS otherwise
+  reaches a copy of the unwinder that has never run, and the game aborts.
 - **patternsleuth** reads the ELF image (`image-elf`).
 - **Itanium ABI**: the FName constructor takes `this` first; `ProcessLocalScriptFunction` is the
   tail jump of `ProcessInternal` under Clang; `ULocalPlayer::Exec` comes from the primary vtable.
@@ -103,6 +130,13 @@ python3 tools/linux-layouts/ue_vtable_layout.py <executable> assets/VTableLayout
   `/proc/self/exe`, and only mapped segments are read.
 - **Exports** (`UE4SS/linux_exports.map`): a preloaded library comes first in every lookup of the
   process, so its standard template instantiations were used by the game's own plugins (Mordhau's
-  mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Only `RC::` and Lua are exported.
+  mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Only `RC::`, Lua's C API and
+  `LuaLibrary`'s functions are exported, and of `RC::` only what `UE4SS.dll` exports, the `RC_*_API`
+  declarations (`-fvisibility-ms-compat`; clang ignores `__declspec(dllexport)` on Linux). C++ mods
+  bind to the UE4SS and Unreal API.
 - **Layouts from DWARF** (`tools/linux-layouts/ue_layout_from_dwarf.py`): the same bodies as the
   source tools, read from a server's `.debug` - no Unreal source or UnrealBuildTool needed.
+- **Lua mods**: a mod's `Scripts` directory is found in either case (mods ship `Scripts`, and
+  discovery looked for `scripts` only), and `io.open` turns every `\` of a mod's path into `/`
+  (Windows-authored mods join paths with `\`), so a filename containing a literal `\` cannot be
+  opened with it.
