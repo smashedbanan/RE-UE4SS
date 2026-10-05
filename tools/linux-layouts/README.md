@@ -79,8 +79,8 @@ The same build can hide engine functions from patternsleuth's AOB scans (Dragonw
 file that returns it. It also writes `GNatives.lua` (decoded from `FFrame::Step`), an optional value
 the scans miss, which UE4SS otherwise runs without. A value that fails its checks is reported and its
 file deleted, so that UE4SS scans for that value itself; the other files are written, and the script
-exits 1. The addresses belong to that build: regenerate both files after every game update. It needs
-Python 3.10 or newer.
+exits 1. `VTableLayout.ini` and `UE4SS_Signatures/` belong to that build: regenerate both after every
+game update. It needs Python 3.10 or newer.
 
 ```bash
 python3 ue_signatures_from_sym.py <executable> UE4SS_Signatures
