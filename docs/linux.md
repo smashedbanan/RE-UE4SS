@@ -81,3 +81,5 @@ Windows: the `RC_*_API` declarations.
   padding, and platform types change size (`FRWLock`).
 - **Lua**: `RegisterHook` callbacks take the Lua state lock (a hooked function can run on a worker
   thread; not Linux-specific).
+- **Lua `io.open`**: turns every `\` of a mod's path into `/` (Windows-authored mods such as
+  PartyHats join paths with `\`), so a filename containing a literal `\` cannot be opened with it.
