@@ -137,6 +137,7 @@ Unreal API that `libUE4SS.so` exports.
 - **Layouts from DWARF** (`tools/linux-layouts/ue_layout_from_dwarf.py`): the same bodies as the
   source tools, read from a server's `.debug` - no Unreal source or UnrealBuildTool needed.
 - **Lua mods**: a mod's `Scripts` directory is found in either case (mods ship `Scripts`, and
-  discovery looked for `scripts` only), and `io.open` turns every `\` of a mod's path into `/`
+  discovery looked for `scripts` only), and `io.open`, `io.lines`, `io.input`, `io.output`,
+  `dofile`, `loadfile`, `os.remove` and `os.rename` turn every `\` of a path into `/`
   (Windows-authored mods join paths with `\`), so a filename containing a literal `\` cannot be
-  opened with it.
+  used with them.
