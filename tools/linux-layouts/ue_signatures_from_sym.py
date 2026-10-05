@@ -2,13 +2,11 @@
 
 patternsleuth's AOB scans miss some engine functions in a game's own build (Dragonwilds:
 FName::ToString, FName::FName and StaticConstructObject_Internal), and UE4SS then rescans until
-SecondsToScanBeforeGivingUp and never starts. They also miss the optional FUObjectHashTables::Get,
-GNatives and ConsoleManagerSingleton. The executable is non-PIE, so each file returns an address:
-  - a function's entry from the .sym: FName_ToString, FName_Constructor, StaticConstructObject, and
-    ConsoleManager (IConsoleManager::SetupSingleton, what patternsleuth's resolver returns too);
-  - a global decoded from instructions of .sym-named functions: GNatives from FFrame::Step, and
-    GUObjectHashTables from the inlined Get's constructor calls (UE4SS takes that singleton in place
-    of Get). Every decoded instance must agree and lie in .data or .bss.
+SecondsToScanBeforeGivingUp and never starts. They also miss the optional GNatives. The executable is
+non-PIE, so each file returns an address:
+  - a function's entry from the .sym: FName_ToString, FName_Constructor and StaticConstructObject;
+  - GNatives, a global decoded from FFrame::Step's instructions. Every decoded instance must agree and
+    lie in .data or .bss.
 
 The .sym is a line table whose records carry the name of the function each line belongs to, so a
 function's entry is its lowest address. Clang aligns function entries to 16 bytes; an address that is
@@ -41,14 +39,9 @@ FUNCTIONS = {
     "FName_ToString": "FName::ToString(FString&) const",
     "FName_Constructor": "FName::FName(char16_t const*, EFindName)",
     "StaticConstructObject": "StaticConstructObject_Internal(FStaticConstructObjectParameters const&)",
-    # Not the Singleton variable: see the docstring.
-    "ConsoleManager": "IConsoleManager::SetupSingleton()",
 }
 STEP = "FFrame::Step(UObject*, void*)"
 STEP_GNATIVES = re.compile(re.escape(b"\x48\x8b\x0c\xcd"))  # mov rcx, QWORD PTR [rcx*8 + disp32]
-HASH_TABLES_CTOR = "FUObjectHashTables::FUObjectHashTables()"
-MOV_EDI = 0xBF  # mov edi, imm32
-CALL = b"\xe8"  # call rel32
 
 
 class Refused(Exception):
@@ -95,23 +88,6 @@ def gnatives(image: Image, symbols: Symbols, lines: set[int]) -> set[int]:
     return {struct.unpack_from("<i", code, m.end())[0] for m in STEP_GNATIVES.finditer(code)}
 
 
-def hash_tables(image: Image, ctor: int) -> set[int]:
-    """Get's `static FUObjectHashTables Singleton`: each inlined initializer does mov edi, &Singleton; call ctor."""
-    d = image.data
-    found = set()
-    for vaddr, offset, filesz, executable in image.segments:
-        if not executable:
-            continue
-        end = offset + filesz - 4
-        call = d.find(CALL, offset + 5, end)
-        while call != -1:
-            (rel,) = struct.unpack_from("<i", d, call + 1)
-            if d[call - 5] == MOV_EDI and vaddr + call - offset + 5 + rel == ctor:
-                found.add(struct.unpack_from("<I", d, call - 4)[0])
-            call = d.find(CALL, call + 1, end)
-    return found
-
-
 def main(argv: list[str]) -> int:
     exe, out_dir = argv[0], argv[1]
     image = Image(exe)
@@ -119,16 +95,12 @@ def main(argv: list[str]) -> int:
     if e_type != ET_EXEC:
         sys.exit(f"{exe}: not a non-PIE executable (e_type {e_type}), so .sym addresses are not runtime addresses")
     symbols = Symbols(exe + ".sym", image.base)
-    found = symbols.addresses_of(set(FUNCTIONS.values()) | {STEP, HASH_TABLES_CTOR})
+    found = symbols.addresses_of(set(FUNCTIONS.values()) | {STEP})
     sections = data_sections(image)
     # Each file's value is computed on its own, so that one refusal leaves the other files written.
     entries = {file: (name, functools.partial(entry, name, found[name], image)) for file, name in FUNCTIONS.items()}
     entries["GNatives"] = (f"GNatives, decoded in {STEP}",
                            lambda: one_global("GNatives", gnatives(image, symbols, found[STEP]), sections))
-    entries["GUObjectHashTables"] = (
-        f"FUObjectHashTables::Get()'s Singleton, decoded at the calls to {HASH_TABLES_CTOR}",
-        lambda: one_global("GUObjectHashTables",
-                           hash_tables(image, entry(HASH_TABLES_CTOR, found[HASH_TABLES_CTOR], image)), sections))
     os.makedirs(out_dir, exist_ok=True)
     refused = False
     for file, (what, value) in entries.items():
