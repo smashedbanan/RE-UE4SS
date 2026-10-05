@@ -15,6 +15,8 @@ unit=${RUNESCAPE_UNIT:-$HOME/PROJECTS/repos/jj/POOP/stacks/runescape/runescape.c
 partyhats=${PARTYHATS_ZIP:-$HOME/Downloads/extract/runescape_mods_10-03/PartyHats.zip}
 bin=/srv/rs_server/RSDragonwilds/Binaries/Linux
 game=RSDragonwildsServer-Linux-Shipping
+# Saved holds the server's WorldPassword, and cp -a keeps its modes: only the owner may enter $dw.
+mkdir -p "$dw" && chmod 700 "$dw"
 
 # 1. Signatures and vtable layout of this image's game build. They are absolute addresses of that
 #    build (non-PIE), so they are keyed by image id and generator version (a hash of the two scripts
@@ -36,7 +38,9 @@ if [ ! -f "$layouts/VTableLayout.ini" ]; then
   rm -rf "$layouts" && mv "$tmp/out" "$layouts" && rm -rf "$tmp"
 fi
 
-# 2. The ue4ss directory: UE4SS's working directory (log, settings, layouts, Mods).
+# 2. The ue4ss directory: UE4SS's working directory (log, settings, layouts, Mods). An earlier run
+#    may still have it and Saved mounted: remove that container first.
+podman rm -f --ignore dw-ue4ss-test >/dev/null
 u=$dw/ue4ss
 rm -rf "$u" && mkdir -p "$u/Mods/ProbeCpp/dlls"
 cp "$build/Game__Shipping__Linux/lib/libUE4SS.so" "$repo/assets/UE4SS-settings.ini" "$u/"
@@ -56,7 +60,7 @@ rm -rf "$dw/Saved" && cp -a "$saved" "$dw/Saved"
 #    glob pattern. No -p: nothing can reach this instance. --init stands in for RunInit=true, and
 #    keep-id maps the image's uid 65532 to the host user, who owns the bind mounts.
 read -r -a args <<< "$(sed -n 's/^Exec=//p' "$unit")"
-exec podman run --rm --replace --init --name dw-ue4ss-test \
+exec podman run --rm --init --name dw-ue4ss-test \
   --userns keep-id:uid=65532,gid=65532 --security-opt no-new-privileges \
   -v "$u:$bin/ue4ss" -v "$dw/Saved:/srv/rs_server/RSDragonwilds/Saved" \
   -e LD_PRELOAD="$bin/ue4ss/libUE4SS.so" \
