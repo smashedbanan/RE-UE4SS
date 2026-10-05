@@ -176,11 +176,10 @@ else()
     # _Unwind_RaiseException (LLVM libunwind, exported by Dragonwilds) then raised our exceptions
     # straight into std::terminate. -u pulls libgcc_eh.a in before any object needs it.
     # --exclude-libs names the runtime archives only, not ALL: the first-party libraries (Unreal, File,
-    # DynamicOutput, ...) are static archives too, and hiding them left a C++ mod nothing to bind to.
-    # The linker then copied them into the mod, a private and never-initialized UObjectGlobals that
-    # found nothing. patternsleuth_bind (Rust) holds no API, so it is listed too.
-    # The version script exports only RC::, Lua's C API and LuaLibrary's functions; std::-only
-    # instantiations stay local (see linux_exports.map).
+    # DynamicOutput, ...) are static archives too, and ALL hid their API from C++ mods. The linker then
+    # copied it into each mod: a private, never-initialized UObjectGlobals that found nothing.
+    # patternsleuth_bind (Rust) holds no API, so it is listed too. linux_exports.map lists what is
+    # exported; std::-only instantiations stay local.
     target_link_options(UE4SS PRIVATE -static-libstdc++ -static-libgcc -Wl,-Bsymbolic
                         -Wl,--exclude-libs=libstdc++.a:libgcc.a:libgcc_eh.a:libpatternsleuth_bind.a
                         -Wl,-u,_Unwind_RaiseException -Wl,--push-state,-Bstatic,-lgcc_eh,--pop-state
