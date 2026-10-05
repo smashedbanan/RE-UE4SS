@@ -18,7 +18,7 @@ native functions, `ExecuteInGameThread` and `NotifyOnNewObject`, with every defa
 | Palworld | 5.1.1 | none (built-in layout) | works (10 min, hooks from worker threads) |
 | Pavlov VR | 5.1 | none (built-in layout) | works |
 | Soulmask | 4.27 | reference pack (62 extra virtuals in AGameModeBase) | works |
-| The Front | 4.27 | reference pack (FUObjectArray +0x18, `UE4SS_TARGET_EXE`) | works |
+| The Front | 4.27 | reference pack (FUObjectArray +0x18, `UE4SS_TARGET_EXE`) | works; crashed once at startup in four runs (not explained) |
 | Smalland: Survive the Wilds | 4.27 | reference pack | works |
 | Insurgency: Sandstorm | 4.27 | reference pack | works |
 | Astro Colony | 4.27 | reference pack (`UE4SS_TARGET_EXE`) | works |
