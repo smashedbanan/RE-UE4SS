@@ -98,10 +98,11 @@ python3 tools/linux-layouts/ue_vtable_layout.py <executable> assets/VTableLayout
 python3 tools/linux-layouts/ue_signatures_from_sym.py <executable> ue4ss/UE4SS_Signatures
 ```
 
-A C++ mod is a shared object, `ue4ss/Mods/<Mod>/dlls/main.so`, exporting `start_mod` and
-`uninstall_mod`. Build it with `target_link_libraries(<mod> PUBLIC UE4SS)`, which on Linux also links
-the mod's C++ runtime the way `libUE4SS.so` links its own (see below). It binds to the UE4SS and
-Unreal API that `libUE4SS.so` exports.
+A C++ mod is a shared object, `ue4ss/Mods/<Mod>/dlls/main.so` (or `dlls/<Mod>.so`), exporting
+`start_mod` and `uninstall_mod`. Build it with `target_link_libraries(<mod> PUBLIC UE4SS)`, which on
+Linux also links the mod's C++ runtime the way `libUE4SS.so` links its own (see below). It binds to
+the UE4SS and Unreal API that `libUE4SS.so` exports. Only a `std::exception` thrown from `start_mod`
+is caught.
 
 ## What changed for Linux, and why
 
@@ -132,8 +133,9 @@ Unreal API that `libUE4SS.so` exports.
   `/proc/self/exe`, and only mapped segments are read.
 - **Exports** (`UE4SS/linux_exports.map`): a preloaded library comes first in every lookup of the
   process, so its standard template instantiations were used by the game's own plugins (Mordhau's
-  mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Only `RC::`, Lua's C API and
-  `LuaLibrary`'s functions are exported. C++ mods bind to the UE4SS and Unreal API.
+  mod.io SDK aborted, Sandstorm's allocator saw foreign blocks). Exported: names containing `RC::`
+  (the UE4SS and Unreal API, with its typeinfo, vtables and statics), `SharedObjectManager`, Lua's
+  C API and `LuaLibrary`'s functions. Standard-library instantiations stay local.
 - **Layouts from DWARF** (`tools/linux-layouts/ue_layout_from_dwarf.py`): the same bodies as the
   source tools, read from a server's `.debug` - no Unreal source or UnrealBuildTool needed.
 - **Lua mods**: a mod's `Scripts` directory is found in either case (mods ship `Scripts`, and
