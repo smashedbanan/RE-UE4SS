@@ -20,8 +20,11 @@ Tested on the real dedicated server of each game, in Docker, with a probe Lua mo
 Engine versions with Linux layouts built in: **5.1, 5.6**. Any other version falls back to the MSVC
 layouts with the destructor shift, and the hooks that read a vtable slot stay off (logged).
 
+C++ mods are tested on Dragonwilds with a probe mod: `StaticFindObject`, `FindFirstOf`, and an
+exception thrown and caught inside the mod.
+
 Not tested yet: Linux game **clients** (the GUI and hotkeys are not built on Linux:
-`UE4SS_GUI_ENABLED`/`UE4SS_INPUT_ENABLED` are off), other engine versions, C++ mods.
+`UE4SS_GUI_ENABLED`/`UE4SS_INPUT_ENABLED` are off), other engine versions.
 
 ## Installing
 
@@ -49,12 +52,19 @@ python3 tools/linux-layouts/ue_vtable_layout.py <executable> assets/VTableLayout
 python3 tools/linux-layouts/ue_signatures.py <executable> ue4ss/UE4SS_Signatures
 ```
 
+A C++ mod is a shared object, `ue4ss/Mods/<Mod>/dlls/main.so`, exporting `start_mod` and
+`uninstall_mod`. Build it with `target_link_libraries(<mod> PUBLIC UE4SS)`, which on Linux also links
+the mod's C++ runtime the way `libUE4SS.so` links its own (see below).
+
 ## What changed for Linux, and why
 
-- **Build**: Linux platform type and Clang; GUI and input optional; Windows-only libraries behind
-  `WIN32`; POSIX ports of the file, mutex and scanner layers; `LD_PRELOAD` constructor entry.
+- **Build**: Linux platform type and Clang 19 or newer (clang 18 hides libstdc++'s `std::expected`,
+  which glaze needs); GUI and input optional; Windows-only libraries behind `WIN32`; POSIX ports of
+  the file, mutex and scanner layers; `LD_PRELOAD` constructor entry.
 - **Running inside the game**: libstdc++ and the unwinder are linked in and bound locally (the game
-  exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them).
+  exports its own libc++abi/libunwind, and every `throw` inside UE4SS died in them). Only those
+  runtime archives are hidden, so C++ mods can bind to the UE4SS and Unreal API, and a mod linking
+  the `UE4SS` target inherits the same runtime flags (the game also exports `operator new/delete`).
 - **patternsleuth** reads the ELF image (`image-elf`).
 - **Itanium ABI**: the FName constructor takes `this` first; `ProcessLocalScriptFunction` is the
   tail jump of `ProcessInternal` under Clang; `ULocalPlayer::Exec` comes from the primary vtable.
