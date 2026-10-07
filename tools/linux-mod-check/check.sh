@@ -9,7 +9,9 @@ bad() { echo "FAIL $1"; fail=1; }
 
 # "<type letter> <demangled name>" per symbol
 exports=$(nm -D -C --defined-only "$lib" | cut -c18-)
-mod_syms=$(nm -C "$mod" | cut -c18-)
+# mold labels each PLT stub and non-TLS GOT slot with a local <name>$plt, <name>$pltgot or <name>$got
+# symbol: not definitions.
+mod_syms=$(nm -C "$mod" | cut -c18- | grep -vE '\$(plt|got|pltgot)$')
 
 # Out-of-line API and data: the mod must import them from libUE4SS.so.
 for name in 'RC::Unreal::Container::UnrealObjectVC' 'RC::Unreal::UObjectGlobals::FindObject(' \
